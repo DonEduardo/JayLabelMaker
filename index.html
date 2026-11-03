@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1f2937">
+  <title>Jay Label Maker</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <h1>Jay Label Maker</h1>
+    <span id="conn-state" class="pill off">Disconnected</span>
+  </header>
+
+  <main>
+    <section id="unsupported" class="card warn" hidden>
+      This browser doesn't support Web Serial. Use Chrome or Edge on macOS, or Chrome on Android,
+      over HTTPS or localhost.
+    </section>
+
+    <section class="card">
+      <h2>Printer</h2>
+      <p class="hint">Pair the PT-P300BT with your device's Bluetooth settings first.</p>
+      <div class="row">
+        <button id="btn-connect">Connect</button>
+        <button id="btn-disconnect" disabled>Disconnect</button>
+        <button id="btn-status" disabled>Request status</button>
+      </div>
+      <dl id="status" class="status"></dl>
+    </section>
+
+    <section class="card">
+      <h2>Label</h2>
+      <p class="hint">Label designer and preview coming soon.</p>
+      <input id="label-text" type="text" placeholder="Label text" disabled>
+      <div class="row">
+        <button id="btn-print" disabled>Print</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row spread">
+        <h2>Log</h2>
+        <button id="btn-clear-log" class="small">Clear</button>
+      </div>
+      <pre id="log"></pre>
+    </section>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
