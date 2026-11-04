@@ -78,6 +78,9 @@ Exact job sent (2365 bytes, written in one burst over ~50 ms, no throttling):
 - Then the app sends `1B 69 61 FF` (purpose unknown; copy it to be safe).
 - Status byte 4 = 0x72 (model id), byte 15 echoes the various-mode byte (0x40 when cut mark is on).
 - One Bluetooth connection was kept open for both labels.
+- Status bytes 24/25 = tape color / text color (Brother's codes). Genuine white-on-black 12 mm reports `08 01`.
+  A knockoff black-on-yellow cartridge reports `01 08` (white tape, black text), so knockoff colors can be
+  wrong. It prints fine with our app (Brother's app rejected knockoffs).
 - 2026-11-03: replaying this exact job from the Mac (Python + PyObjC IOBluetooth, RFCOMM channel 1)
   printed 2 labels back to back, each with the same status sequence (~3.3 s per label).
 - Printer SDP records: SPP (0x1101) on RFCOMM **channel 1**; "Wireless iAP" (Apple MFi) on channel 2,

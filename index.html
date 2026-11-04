@@ -38,6 +38,13 @@
       <div class="preview"><canvas id="preview"></canvas></div>
       <p id="preview-info" class="hint"></p>
       <div class="row">
+        <label>Tape colors
+          <select id="tape-colors">
+            <option value="auto">Auto (from printer)</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
         <label><input id="cut-mark" type="checkbox"> Cut mark</label>
         <label>Copies <input id="copies" type="number" min="1" max="50" value="1"></label>
         <button id="btn-print" disabled>Print</button>

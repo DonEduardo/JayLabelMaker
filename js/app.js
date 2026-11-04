@@ -18,7 +18,29 @@ let connected = false;
 let printing = false;
 let stopRequested = false;
 let tapeMm = 12; // assumed until the printer reports its tape
-let tapeColors = {}; // preview colors, once the printer reports them
+let printerColors = {}; // preview colors as reported by the printer
+
+// Manual choices, for cartridges (often knockoffs) that report the wrong color.
+const COLOR_PRESETS = {
+  'black-white': ['Black on white', '#111111', '#ffffff'],
+  'black-yellow': ['Black on yellow', '#111111', '#f7d23e'],
+  'white-black': ['White on black', '#ffffff', '#111111'],
+  'black-clear': ['Black on clear', '#111111', '#eef2f3'],
+  'red-white': ['Red on white', '#d62828', '#ffffff'],
+  'blue-white': ['Blue on white', '#1e5bb8', '#ffffff'],
+  'black-red': ['Black on red', '#111111', '#d62828'],
+  'black-blue': ['Black on blue', '#111111', '#4a90e2'],
+  'black-green': ['Black on green', '#111111', '#2e9e4f'],
+  'white-blue': ['White on blue', '#ffffff', '#1e5bb8'],
+  'white-red': ['White on red', '#ffffff', '#d62828'],
+  'gold-black': ['Gold on black', '#c9a94a', '#111111'],
+  'white-clear': ['White on clear', '#ffffff', '#9ca3af'],
+};
+
+function previewColors() {
+  const preset = COLOR_PRESETS[$('tape-colors').value];
+  return preset ? { ink: preset[1], tape: preset[2] } : printerColors;
+}
 
 function updateButtons() {
   $('conn-state').textContent = connected ? 'Connected' : 'Disconnected';
@@ -53,9 +75,10 @@ const printer = new Printer({
   log,
   onStatus: (s) => {
     showStatus(s);
+    $('tape-colors').options[0].text = `Auto (printer says ${s.textColor.name.toLowerCase()} on ${s.tapeColor.name.toLowerCase()})`;
     const colors = { tape: s.tapeColor.css, ink: s.textColor.css };
-    if (colors.tape && colors.ink && (colors.tape !== tapeColors.tape || colors.ink !== tapeColors.ink)) {
-      tapeColors = colors;
+    if (colors.tape && colors.ink && (colors.tape !== printerColors.tape || colors.ink !== printerColors.ink)) {
+      printerColors = colors;
       updatePreview();
     }
     if (PRINT_AREA[s.mediaWidthMm] && s.mediaWidthMm !== tapeMm) {
@@ -73,7 +96,7 @@ function updatePreview() {
   const text = $('label-text').value.trim();
   const area = PRINT_AREA[tapeMm];
   const lines = text ? renderText(text, area) : [];
-  drawPreview($('preview'), lines, area, tapeColors);
+  drawPreview($('preview'), lines, area, previewColors());
   const mm = (lines.length / 180 * 25.4).toFixed(1);
   $('preview-info').textContent = text
     ? `${tapeMm} mm tape${area.verified ? '' : ' (print area not yet verified)'} · ${lines.length} lines ≈ ${mm} mm of text`
@@ -151,6 +174,15 @@ $('btn-stop').onclick = () => {
 };
 $('label-text').oninput = updatePreview;
 $('btn-clear-log').onclick = () => { logEl.innerHTML = ''; };
+
+for (const [value, [name]] of Object.entries(COLOR_PRESETS)) {
+  $('tape-colors').append(new Option(name, value));
+}
+$('tape-colors').value = localStorage.getItem('tapeColors') in COLOR_PRESETS ? localStorage.getItem('tapeColors') : 'auto';
+$('tape-colors').onchange = () => {
+  localStorage.setItem('tapeColors', $('tape-colors').value);
+  updatePreview();
+};
 
 updatePreview();
 log('Ready');
