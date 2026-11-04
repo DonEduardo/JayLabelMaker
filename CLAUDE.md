@@ -54,6 +54,38 @@ Job sequence, as sent by the official app (from captures):
 - 12 mm tape: roughly the outer 30 px on each side of the 128 px head do not print (verify).
 - Status request: `1B 69 53` -> 32-byte status reply.
 
+### Verified from capture of Brother's app (2026-11-03, 12 mm tape, PT-P300BT)
+Full HCI snoop log; both jobs decoded byte-for-byte. Printer BT address `a0:66:10:95:64:a7`, RFCOMM channel 1.
+Exact job sent (2365 bytes, written in one burst over ~50 ms, no throttling):
+```
+00 x 100
+1B 69 61 01                              raster mode (sent BEFORE 1B 40)
+1B 40                                    initialize
+1B 69 7A 84 01 0C 00 96 00 00 00 00 00   flags 0x84, laminated, 12 mm, 0x96 = 150 lines
+1B 69 4B 08
+1B 69 4D 00                              no cut mark   |  1B 69 4D 40 = cut mark printed
+1B 69 64 1C 00
+4D 02                                    PackBits compression IS used
+47 n1 n2 [packbits] x 150                every line decompresses to 16 bytes; line count == header count
+1A
+```
+- Printable area on 12 mm tape: dots 32..95 of the 128 (64 dots, 32-dot blank margin on each side).
+- Before each job the app sends `1B 69 53` twice (one reply each, status type 00).
+- After the data, the printer pushes status on its own (no request needed):
+  1. ~0.15 s: type 06 phase change, phase 01 (printing)
+  2. ~3 s: type 01 **printing completed**
+  3. immediately after: type 06 phase change, phase 00 (back to receiving)
+- Then the app sends `1B 69 61 FF` (purpose unknown; copy it to be safe).
+- Status byte 4 = 0x72 (model id), byte 15 echoes the various-mode byte (0x40 when cut mark is on).
+- One Bluetooth connection was kept open for both labels.
+- 2026-11-03: replaying this exact job from the Mac (Python + PyObjC IOBluetooth, RFCOMM channel 1)
+  printed 2 labels back to back, each with the same status sequence (~3.3 s per label).
+- Printer SDP records: SPP (0x1101) on RFCOMM **channel 1**; "Wireless iAP" (Apple MFi) on channel 2,
+  which spams `FF 55 …`. macOS exposes no `/dev/cu.PT-P300BT*` device.
+- Chrome 156 on macOS: `port.open()` fails with "Failed to open serial port". `chrome://device-log` says
+  "Failed to connect socket ... SDP query timeout" ~8 s after the link comes up. The same SDP query
+  (with or without the 0x1101 UUID filter) finishes in ~0.1 s from Python, so this looks like a Chrome-on-Mac bug.
+
 ### 32-byte status packet
 Header starts `80 20 42 30 …` (0x80 head mark, 0x20 = size 32, 'B', '0').
 Offsets as used by stecman's script (verify against captures):

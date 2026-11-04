@@ -5,3 +5,4 @@ __pycache__/
 *.pcap*
 btsnoop*
 bugreport*
+captures/

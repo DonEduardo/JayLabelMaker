@@ -34,11 +34,16 @@
 
     <section class="card">
       <h2>Label</h2>
-      <p class="hint">Label designer and preview coming soon.</p>
-      <input id="label-text" type="text" placeholder="Label text" disabled>
+      <input id="label-text" type="text" placeholder="Label text" value="Hello">
+      <div class="preview"><canvas id="preview"></canvas></div>
+      <p id="preview-info" class="hint"></p>
       <div class="row">
+        <label><input id="cut-mark" type="checkbox"> Cut mark</label>
+        <label>Copies <input id="copies" type="number" min="1" max="50" value="1"></label>
         <button id="btn-print" disabled>Print</button>
+        <button id="btn-stop" class="small" hidden>Stop after this label</button>
       </div>
+      <p id="print-state" class="hint"></p>
     </section>
 
     <section class="card">
