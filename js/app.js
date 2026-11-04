@@ -18,6 +18,7 @@ let connected = false;
 let printing = false;
 let stopRequested = false;
 let tapeMm = 12; // assumed until the printer reports its tape
+let tapeColors = {}; // preview colors, once the printer reports them
 
 function updateButtons() {
   $('conn-state').textContent = connected ? 'Connected' : 'Disconnected';
@@ -34,7 +35,7 @@ function showStatus(s) {
     'Status': s.statusType,
     'Battery': s.battery,
     'Tape width': `${s.mediaWidthMm} mm`,
-    'Media type': `0x${s.mediaType.toString(16)}`,
+    'Tape': `${s.tapeColor.name} tape, ${s.textColor.name.toLowerCase()} text (${s.mediaTypeName})`,
     'Errors': s.errors.length ? s.errors.join(', ') : 'None',
     'Phase': s.phaseType,
   };
@@ -52,6 +53,11 @@ const printer = new Printer({
   log,
   onStatus: (s) => {
     showStatus(s);
+    const colors = { tape: s.tapeColor.css, ink: s.textColor.css };
+    if (colors.tape && colors.ink && (colors.tape !== tapeColors.tape || colors.ink !== tapeColors.ink)) {
+      tapeColors = colors;
+      updatePreview();
+    }
     if (PRINT_AREA[s.mediaWidthMm] && s.mediaWidthMm !== tapeMm) {
       tapeMm = s.mediaWidthMm;
       updatePreview();
@@ -67,7 +73,7 @@ function updatePreview() {
   const text = $('label-text').value.trim();
   const area = PRINT_AREA[tapeMm];
   const lines = text ? renderText(text, area) : [];
-  drawPreview($('preview'), lines, area);
+  drawPreview($('preview'), lines, area, tapeColors);
   const mm = (lines.length / 180 * 25.4).toFixed(1);
   $('preview-info').textContent = text
     ? `${tapeMm} mm tape${area.verified ? '' : ' (print area not yet verified)'} · ${lines.length} lines ≈ ${mm} mm of text`

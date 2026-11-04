@@ -36,6 +36,37 @@ function describeErrors(e1, e2) {
   return names;
 }
 
+// Tape and text colors (status bytes 24 and 25), from Brother's raster command reference.
+// Each entry: [name, CSS color for the preview].
+const TAPE_COLORS = {
+  0x01: ['White', '#ffffff'], 0x02: ['Other', '#d1d5db'], 0x03: ['Clear', '#eef2f3'],
+  0x04: ['Red', '#d62828'], 0x05: ['Blue', '#1e5bb8'], 0x06: ['Yellow', '#f7d23e'],
+  0x07: ['Green', '#2e9e4f'], 0x08: ['Black', '#111111'], 0x09: ['Clear (white text)', '#eef2f3'],
+  0x20: ['Matte white', '#f7f7f2'], 0x21: ['Matte clear', '#e9ecec'], 0x22: ['Matte silver', '#b8bcc0'],
+  0x23: ['Satin gold', '#c9a94a'], 0x24: ['Satin silver', '#c0c4c8'], 0x30: ['Blue (D)', '#2563eb'],
+  0x31: ['Red (D)', '#dc2626'], 0x40: ['Fluorescent orange', '#ff7a1a'], 0x41: ['Fluorescent yellow', '#e8ff3a'],
+  0x50: ['Berry pink', '#e0559a'], 0x51: ['Light gray', '#cfd2d6'], 0x52: ['Lime green', '#9bd23c'],
+  0x60: ['Yellow (fabric)', '#f7d23e'], 0x61: ['Pink (fabric)', '#f4a6c6'], 0x62: ['Blue (fabric)', '#7fb3f5'],
+  0x70: ['White heat-shrink tube', '#ffffff'], 0x90: ['White flexible ID', '#ffffff'],
+  0x91: ['Yellow flexible ID', '#f7d23e'], 0xf0: ['Cleaning', '#ffffff'], 0xf1: ['Stencil', '#ffffff'],
+  0xff: ['Incompatible', '#ffffff'],
+};
+const TEXT_COLORS = {
+  0x01: ['White', '#ffffff'], 0x02: ['Other', '#555555'], 0x04: ['Red', '#d62828'],
+  0x05: ['Blue', '#1e5bb8'], 0x08: ['Black', '#111111'], 0x0a: ['Gold', '#c9a94a'],
+  0x62: ['Blue (fabric)', '#1e5bb8'], 0xf0: ['Cleaning', '#111111'], 0xf1: ['Stencil', '#111111'],
+  0xff: ['Incompatible', '#111111'],
+};
+const MEDIA_TYPES = {
+  0x00: 'No tape', 0x01: 'Laminated', 0x03: 'Non-laminated',
+  0x11: 'Heat-shrink tube 2:1', 0x17: 'Heat-shrink tube 3:1', 0xff: 'Incompatible',
+};
+
+function color(table, code) {
+  const [name, css] = table[code] ?? [`Unknown (0x${code.toString(16)})`, null];
+  return { code, name, css };
+}
+
 const BATTERY = ['Full', 'Half', 'Low', 'Change batteries', 'AC adapter'];
 const STATUS_TYPE = {
   0x00: 'Reply to status request',
@@ -55,6 +86,9 @@ export function parseStatus(b) {
     errors: describeErrors(b[8], b[9]),
     mediaWidthMm: b[10],
     mediaType: b[11],
+    mediaTypeName: MEDIA_TYPES[b[11]] ?? `Unknown (0x${b[11].toString(16)})`,
+    tapeColor: color(TAPE_COLORS, b[24]),
+    textColor: color(TEXT_COLORS, b[25]),
     statusType: STATUS_TYPE[b[18]] ?? `Unknown (${b[18]})`,
     statusTypeCode: b[18],
     phaseType: b[19],

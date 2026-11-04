@@ -47,7 +47,10 @@ export function renderText(text, area) {
 }
 
 // Draw raster lines back into a canvas, so the preview shows exactly what gets sent.
-export function drawPreview(canvas, lines, area) {
+export function drawPreview(canvas, lines, area, { tape = '#ffffff', ink = '#000000' } = {}) {
+  const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const [tr, tg, tb] = rgb(tape);
+  const [ir, ig, ib] = rgb(ink);
   const { offset, dots } = area;
   canvas.width = lines.length;
   canvas.height = dots;
@@ -58,7 +61,9 @@ export function drawPreview(canvas, lines, area) {
       const bit = offset + y;
       const on = line[bit >> 3] & (0x80 >> (bit & 7));
       const i = (y * lines.length + x) * 4;
-      img.data[i] = img.data[i + 1] = img.data[i + 2] = on ? 0 : 255;
+      img.data[i] = on ? ir : tr;
+      img.data[i + 1] = on ? ig : tg;
+      img.data[i + 2] = on ? ib : tb;
       img.data[i + 3] = 255;
     }
   });
