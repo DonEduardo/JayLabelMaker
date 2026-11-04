@@ -38,6 +38,7 @@ export const BORDERS = {
   pill: { name: 'Pill', width: 2, pill: true },
   double: { name: 'Double', width: 2, double: true },
   dashed: { name: 'Dashed', width: 2, dash: [6, 4] },
+  bars: { name: 'Bars', width: 2, bars: true }, // a line above and below, open at the ends
 };
 const BORDER_INSET = 2; // keep lines off the very edge of the printable area
 
@@ -156,6 +157,13 @@ function drawBorder(ctx, b, w, h) {
   ctx.save();
   ctx.strokeStyle = '#000';
   ctx.lineWidth = b.width;
+  if (b.bars) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, BORDER_INSET, w, b.width);
+    ctx.fillRect(0, h - BORDER_INSET - b.width, w, b.width);
+    ctx.restore();
+    return;
+  }
   if (b.dash) ctx.setLineDash(b.dash);
   const rect = (inset, radius) => {
     const i = inset + b.width / 2;
@@ -235,7 +243,9 @@ function renderPanel(d, H, fixedW, image, warnings) {
   const b = BORDERS[d.border] ?? BORDERS.none;
   const space = borderSpace(b);
   const padY = space ? space + 3 : 1;
-  let padX = space ? space + 4 + (b.pill ? Math.round(H * 0.22) : b.radius ? 3 : 0) : 4;
+  // Bars have no sides, so the ends need no more room than a label without a border.
+  const sideSpace = b.bars ? 0 : space;
+  let padX = sideSpace ? sideSpace + 4 + (b.pill ? Math.round(H * 0.22) : b.radius ? 3 : 0) : 4;
   const innerH = H - 2 * padY;
 
   const lines = textLines(d);
@@ -259,7 +269,7 @@ function renderPanel(d, H, fixedW, image, warnings) {
       g.qr = qr;
       gH = qr.dots;
       gap = lines.length ? Math.max(gap, 4 * qr.scale) : 0;
-      padX = Math.max(padX, space + 3 * qr.scale);
+      padX = Math.max(padX, sideSpace + 3 * qr.scale);
     }
   }
   const gW = g ? Math.max(1, Math.round(gH * g.aspect)) : 0;
