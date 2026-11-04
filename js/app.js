@@ -167,6 +167,11 @@ function syncForm() {
   $('emphasize').checked = design.emphasizeFirst;
   $('icon-pos').value = design.iconPos;
   $('cut-marks').checked = design.cutMarks;
+  $('cut-gap').value = design.cutGapMm;
+  $('cut-gap-wrap').hidden = !design.cutMarks;
+  $('center-marks').checked = design.centerMarks;
+  $('qr-text').value = design.qrText;
+  $('qr-opts').hidden = design.icon !== 'qr';
   $('cable-opts').hidden = design.template !== 'cable';
   $('length-wrap').hidden = design.lengthMode !== 'fixed';
   $('size-wrap').hidden = design.sizeMode !== 'fixed';
@@ -213,6 +218,10 @@ function buildIconPicker() {
   for (const [key, icon] of Object.entries(ICONS)) {
     segButton(box, key, iconSvg(icon), () => setDesign({ icon: key })).title = icon.name;
   }
+  segButton(box, 'qr', 'QR', () => {
+    setDesign({ icon: 'qr' });
+    if (!design.qrText) $('qr-text').focus();
+  }).title = 'QR code: a link or text your phone camera can read';
   if (uploadedImage) {
     const img = document.createElement('img');
     img.src = uploadedImage.src;
@@ -251,6 +260,8 @@ function buildDesigner() {
   live('label-text', () => ({ text: $('label-text').value }));
   live('cable-mm', () => ({ cableMm: num('cable-mm', 1, 40, design.cableMm) }));
   live('length-mm', () => ({ lengthMm: num('length-mm', 5, 500, design.lengthMm) }));
+  live('cut-gap', () => ({ cutGapMm: num('cut-gap', 0, 10, design.cutGapMm) }));
+  live('qr-text', () => ({ qrText: $('qr-text').value }));
   live('size-pt', () => ({ sizePt: num('size-pt', 4, 60, design.sizePt) }));
 
   $('length-mode').onchange = () => {
@@ -271,6 +282,7 @@ function buildDesigner() {
   $('emphasize').onchange = () => setDesign({ emphasizeFirst: $('emphasize').checked });
   $('icon-pos').onchange = () => setDesign({ iconPos: $('icon-pos').value });
   $('cut-marks').onchange = () => setDesign({ cutMarks: $('cut-marks').checked });
+  $('center-marks').onchange = () => setDesign({ centerMarks: $('center-marks').checked });
 
   $('upload').onchange = () => {
     const file = $('upload').files[0];

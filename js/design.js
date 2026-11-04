@@ -2,6 +2,8 @@
 // as tall as the printable area (one canvas pixel = one printer dot, 180 dpi).
 // The canvas is then turned into raster lines by render.js.
 
+import { capacity, encodeQr } from './qr.js';
+
 export const DPI = 180;
 export const mmToDots = (mm) => Math.round((mm / 25.4) * DPI);
 export const dotsToMm = (dots) => (dots * 25.4) / DPI;
@@ -75,6 +77,9 @@ export const DEFAULT_DESIGN = {
   iconPos: 'left',
   cableMm: 6, // cable flag: cable diameter
   cutMarks: true, // dotted lines at both ends to cut along
+  cutGapMm: 1.5, // blank tape between each cut mark and the label
+  centerMarks: true, // cable flag: ticks at the middle, where the cable goes
+  qrText: '', // content of the QR code when icon === 'qr'
 };
 
 // Templates set a starting layout. Text is only replaced if it's still a sample.
@@ -109,6 +114,10 @@ export function hasContent(d, image) {
 }
 
 function graphicFor(d, image) {
+  if (d.icon === 'qr') {
+    const text = (d.qrText ?? '').trim();
+    return text ? { aspect: 1, qrText: text } : null;
+  }
   if (d.icon === 'upload') {
     return image?.naturalWidth ? { aspect: image.naturalWidth / image.naturalHeight, image } : null;
   }
@@ -118,7 +127,14 @@ function graphicFor(d, image) {
 
 function drawGraphic(ctx, g, x, y, w, h) {
   ctx.save();
-  if (g.image) {
+  if (g.qr) {
+    // Whole dots only, so every module prints the same size.
+    const s = g.qr.scale;
+    ctx.fillStyle = '#000';
+    g.qr.modules.forEach((row, my) => row.forEach((dark, mx) => {
+      if (dark) ctx.fillRect(Math.round(x) + mx * s, Math.round(y) + my * s, s, s);
+    }));
+  } else if (g.image) {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(g.image, x, y, w, h);
   } else {
@@ -153,6 +169,24 @@ function drawBorder(ctx, b, w, h) {
   rect(BORDER_INSET, b.radius ?? 0);
   if (b.double) rect(BORDER_INSET + b.width + 2, (b.radius ?? 0) - b.width - 2);
   ctx.restore();
+}
+
+// Biggest QR code for `text` that fits in `h` dots. Prefers bigger modules (easier to scan)
+// over more error correction. Modules under 2 dots (0.28 mm) are a last resort.
+function fitQr(text, h) {
+  for (let scale = 4; scale >= 1; scale--) {
+    const maxVersion = Math.floor((Math.floor(h / scale) - 17) / 4);
+    if (maxVersion < 1) continue;
+    const qr = encodeQr(text, { minEcc: 'M', maxVersion }) ?? encodeQr(text, { minEcc: 'L', maxVersion });
+    if (qr) return { ...qr, scale, dots: qr.modules.length * scale };
+  }
+  return null;
+}
+
+// Most bytes a QR code with modules of at least 2 dots can hold in `h` dots.
+function qrLimit(h) {
+  const v = Math.min(10, Math.floor((Math.floor(h / 2) - 17) / 4));
+  return v >= 1 ? capacity(v, 'L') : 0;
 }
 
 const measureCtx = document.createElement('canvas').getContext('2d');
@@ -201,14 +235,34 @@ function renderPanel(d, H, fixedW, image, warnings) {
   const b = BORDERS[d.border] ?? BORDERS.none;
   const space = borderSpace(b);
   const padY = space ? space + 3 : 1;
-  const padX = space ? space + 4 + (b.pill ? Math.round(H * 0.22) : b.radius ? 3 : 0) : 4;
+  let padX = space ? space + 4 + (b.pill ? Math.round(H * 0.22) : b.radius ? 3 : 0) : 4;
   const innerH = H - 2 * padY;
 
   const lines = textLines(d);
-  const g = graphicFor(d, image);
-  const gH = innerH;
+  let g = graphicFor(d, image);
+  let gH = innerH;
+  let gap = g && lines.length ? Math.round(H * 0.08) : 0;
+  if (g?.qrText) {
+    // Without a border the code can use the full height; the tape beyond the print area
+    // is its quiet zone. Along the tape, keep a few modules clear of text and border.
+    const qrH = space ? innerH : H;
+    const qr = fitQr(g.qrText, qrH);
+    if (!qr) {
+      const n = qrLimit(qrH);
+      warnings.push(n
+        ? `QR text is too long for this tape: ${n} characters at most${space ? ' (more without a border)' : ''}.`
+        : 'This tape is too narrow for a QR code.');
+      g = null;
+      gap = 0;
+    } else {
+      if (qr.scale < 2) warnings.push('The QR code\'s dots are very small and may not scan; use shorter text.');
+      g.qr = qr;
+      gH = qr.dots;
+      gap = lines.length ? Math.max(gap, 4 * qr.scale) : 0;
+      padX = Math.max(padX, space + 3 * qr.scale);
+    }
+  }
   const gW = g ? Math.max(1, Math.round(gH * g.aspect)) : 0;
-  const gap = g && lines.length ? Math.round(H * 0.08) : 0;
 
   let block = null;
   if (lines.length) {
@@ -239,9 +293,9 @@ function renderPanel(d, H, fixedW, image, warnings) {
   let tx0 = padX;
   let tx1 = W - padX;
   if (g) {
-    const gy = padY + (innerH - gH) / 2;
+    const gy = g.qr ? Math.floor((H - gH) / 2) : padY + (innerH - gH) / 2;
     let gx;
-    if (!block) gx = (W - gW) / 2;
+    if (!block) gx = Math.floor((W - gW) / 2);
     else if (d.iconPos === 'right') gx = fixedW ? tx1 - gW : padX + block.width + gap;
     else gx = padX;
     drawGraphic(ctx, g, gx, gy, gW, gH);
@@ -270,10 +324,18 @@ function renderPanel(d, H, fixedW, image, warnings) {
 // length (between the cut marks, if any).
 export function renderLabel(d, area, image = null) {
   const warnings = [];
-  const { canvas, basePx } = renderBody(d, area.dots, image, warnings);
+  // Blank tape between each cut mark and the label. A fixed length includes it.
+  const end = d.cutMarks ? mmToDots(Math.max(0, d.cutGapMm ?? 1.5)) : 0;
+  let fixedW = null;
+  if (d.lengthMode === 'fixed') {
+    fixedW = mmToDots(d.lengthMm) - 2 * end;
+    if (fixedW < mmToDots(5)) {
+      warnings.push('The cut mark gap leaves too little room in this length.');
+      fixedW = mmToDots(5);
+    }
+  }
+  const { canvas, basePx } = renderBody(d, area.dots, fixedW, image, warnings);
   if (!d.cutMarks) return { canvas, warnings, basePx, labelDots: canvas.width };
-  // A grow-to-fit label gets some blank tape at each end, so the cut doesn't touch the text.
-  const end = d.lengthMode === 'fixed' ? 0 : mmToDots(1.5);
   const out = withCutMarks(canvas, end);
   return { canvas: out, warnings, basePx, labelDots: canvas.width + 2 * end };
 }
@@ -298,8 +360,8 @@ function withCutMarks(label, end) {
   return canvas;
 }
 
-function renderBody(d, H, image, warnings) {
-  const fixedW = d.lengthMode === 'fixed' ? mmToDots(d.lengthMm) : null;
+// fixedW: body width in dots, or null to grow to fit.
+function renderBody(d, H, fixedW, image, warnings) {
 
   if (d.template !== 'cable') {
     const panel = renderPanel(d, H, fixedW, image, warnings);
@@ -330,5 +392,13 @@ function renderBody(d, H, image, warnings) {
   ctx.rotate(Math.PI);
   ctx.drawImage(panel.canvas, 0, 0);
   ctx.restore();
+  if (d.centerMarks) {
+    // Short ticks at both edges, in the middle of the wrap: line the cable up with them.
+    const len = Math.round(H * 0.18);
+    const x = Math.round(canvas.width / 2) - 1;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x, 0, 2, len);
+    ctx.fillRect(x, H - len, 2, len);
+  }
   return { canvas, basePx: panel.basePx };
 }

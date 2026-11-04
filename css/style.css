@@ -83,3 +83,4 @@ textarea {
 .icons button { padding: 6px; min-width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; font-size: .8rem; }
 .icons svg { width: 26px; height: 26px; }
 .icons img { max-width: 40px; max-height: 30px; }
+#qr-text { margin-bottom: 0; }
