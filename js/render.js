@@ -1,42 +1,22 @@
-// Turns label text into 1-bit raster lines for the print head.
+// Turns a label canvas into 1-bit raster lines for the print head, and draws them back for the preview.
 // Orientation (verified from the capture): one raster line = one column of the label,
-// sent left to right; the top of the text is the lowest dot number in the line.
+// sent left to right; the top of the label is the lowest dot number in the line.
 
 import { LINE_BYTES } from './protocol.js';
+import { mmToDots } from './design.js';
 
-const FONT = 'bold {size}px system-ui, -apple-system, sans-serif';
-const PAD = 4; // blank columns before and after the text
-
-export function renderText(text, area) {
+// `canvas` must be exactly `area.dots` tall.
+export function canvasToLines(canvas, area) {
   const { offset, dots } = area;
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-  // Size the font so ascenders and descenders fill the printable height.
-  const font = (size) => FONT.replace('{size}', size);
-  ctx.font = font(100);
-  const ref = ctx.measureText('Hgjy');
-  const size = Math.floor((100 * (dots - 2)) / (ref.actualBoundingBoxAscent + ref.actualBoundingBoxDescent));
-  ctx.font = font(size);
-  const m = ctx.measureText('Hgjy');
-  const t = ctx.measureText(text);
-  const textWidth = Math.ceil(t.actualBoundingBoxLeft + t.actualBoundingBoxRight);
-
-  canvas.width = Math.max(1, textWidth) + 2 * PAD;
-  canvas.height = dots;
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#000';
-  ctx.font = font(size); // resizing the canvas resets the context
-  const baseline = (dots - (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent)) / 2 + m.actualBoundingBoxAscent;
-  ctx.fillText(text, PAD + t.actualBoundingBoxLeft, baseline);
-
-  const px = ctx.getImageData(0, 0, canvas.width, dots).data;
+  const w = canvas.width;
+  const px = canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, dots).data;
   const lines = [];
-  for (let x = 0; x < canvas.width; x++) {
+  for (let x = 0; x < w; x++) {
     const line = new Uint8Array(LINE_BYTES);
     for (let y = 0; y < dots; y++) {
-      if (px[(y * canvas.width + x) * 4] < 128) {
+      const i = (y * w + x) * 4;
+      const lum = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+      if (px[i + 3] >= 128 && lum < 128) {
         const bit = offset + y;
         line[bit >> 3] |= 0x80 >> (bit & 7);
       }
@@ -47,24 +27,24 @@ export function renderText(text, area) {
 }
 
 // Draw raster lines back into a canvas, so the preview shows exactly what gets sent.
-export function drawPreview(canvas, lines, area, { tape = '#ffffff', ink = '#000000' } = {}) {
+// The full tape width is shown; the unprintable strips at the edges stay blank.
+export function drawPreview(canvas, lines, area, tapeMm, { tape = '#ffffff', ink = '#000000' } = {}) {
   const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const [tr, tg, tb] = rgb(tape);
   const [ir, ig, ib] = rgb(ink);
   const { offset, dots } = area;
-  canvas.width = lines.length;
-  canvas.height = dots;
+  const tapeDots = Math.max(dots, mmToDots(tapeMm === 4 ? 3.5 : tapeMm));
+  const top = Math.floor((tapeDots - dots) / 2);
+  const w = Math.max(1, lines.length);
+  canvas.width = w;
+  canvas.height = tapeDots;
   const ctx = canvas.getContext('2d');
-  const img = ctx.createImageData(lines.length, dots);
+  const img = ctx.createImageData(w, tapeDots);
+  for (let i = 0; i < img.data.length; i += 4) img.data.set([tr, tg, tb, 255], i);
   lines.forEach((line, x) => {
     for (let y = 0; y < dots; y++) {
       const bit = offset + y;
-      const on = line[bit >> 3] & (0x80 >> (bit & 7));
-      const i = (y * lines.length + x) * 4;
-      img.data[i] = on ? ir : tr;
-      img.data[i + 1] = on ? ig : tg;
-      img.data[i + 2] = on ? ib : tb;
-      img.data[i + 3] = 255;
+      if (line[bit >> 3] & (0x80 >> (bit & 7))) img.data.set([ir, ig, ib, 255], ((top + y) * w + x) * 4);
     }
   });
   ctx.putImageData(img, 0, 0);

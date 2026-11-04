@@ -62,8 +62,8 @@ Exact job sent (2365 bytes, written in one burst over ~50 ms, no throttling):
 1B 69 61 01                              raster mode (sent BEFORE 1B 40)
 1B 40                                    initialize
 1B 69 7A 84 01 0C 00 96 00 00 00 00 00   flags 0x84, laminated, 12 mm, 0x96 = 150 lines
-1B 69 4B 08
-1B 69 4D 00                              no cut mark   |  1B 69 4D 40 = cut mark printed
+1B 69 4B 08                              bit 3 = chain printing OFF (Brother ref: feed the label out after printing)
+1B 69 4D 00                              label 1 sent 00, label 2 sent 40 (Brother ref: bit 6 = "auto cut"; effect on P300BT unverified)
 1B 69 64 1C 00
 4D 02                                    PackBits compression IS used
 47 n1 n2 [packbits] x 150                every line decompresses to 16 bytes; line count == header count
@@ -76,7 +76,10 @@ Exact job sent (2365 bytes, written in one burst over ~50 ms, no throttling):
   2. ~3 s: type 01 **printing completed**
   3. immediately after: type 06 phase change, phase 00 (back to receiving)
 - Then the app sends `1B 69 61 FF` (purpose unknown; copy it to be safe).
-- Status byte 4 = 0x72 (model id), byte 15 echoes the various-mode byte (0x40 when cut mark is on).
+- Status byte 4 = 0x72 (model id), byte 15 echoes the various-mode byte (`1B 69 4D`).
+- The two captured jobs differ ONLY in `1B 69 4D` (00 vs 40): same 150 lines, same margin. Label 2 (40) took
+  3.20 s from "printing" to "completed" vs 3.04 s, so roughly 3 mm more tape at ~20 mm/s. Whether 40 prints a
+  cut mark, adds feed, or both is unverified: check the physical labels.
 - One Bluetooth connection was kept open for both labels.
 - Status bytes 24/25 = tape color / text color (Brother's codes). Genuine white-on-black 12 mm reports `08 01`.
   A knockoff black-on-yellow cartridge reports `01 08` (white tape, black text), so knockoff colors can be

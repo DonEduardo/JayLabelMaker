@@ -1,6 +1,10 @@
 import { Printer } from './printer.js';
 import { PRINT_AREA, buildJob } from './protocol.js';
-import { renderText, drawPreview } from './render.js';
+import { canvasToLines, drawPreview } from './render.js';
+import {
+  BORDERS, DEFAULT_DESIGN, FONTS, ICONS, PX_PER_PT, TEMPLATES,
+  dotsToMm, hasContent, isSampleText, loadFont, renderLabel,
+} from './design.js';
 
 const $ = (id) => document.getElementById(id);
 const logEl = $('log');
@@ -19,6 +23,35 @@ let printing = false;
 let stopRequested = false;
 let tapeMm = 12; // assumed until the printer reports its tape
 let printerColors = {}; // preview colors as reported by the printer
+let lastBasePx = null; // font size the last render picked, to prefill "custom size"
+let lastLabelDots = 0; // label length in the last render, to prefill "fixed length"
+
+// The label design, saved between visits. An uploaded graphic is kept as a data URL.
+let design = { ...DEFAULT_DESIGN };
+try {
+  design = { ...design, ...JSON.parse(localStorage.getItem('design') || '{}') };
+} catch { /* ignore a corrupt save */ }
+let uploadedImage = null;
+
+function saveDesign() {
+  try {
+    localStorage.setItem('design', JSON.stringify(design));
+  } catch {
+    // Probably a large uploaded image; keep everything else.
+    localStorage.setItem('design', JSON.stringify({ ...design, imageData: undefined }));
+  }
+}
+
+function loadImage(dataUrl) {
+  if (!dataUrl) return;
+  const img = new Image();
+  img.onload = () => {
+    uploadedImage = img;
+    buildIconPicker();
+    updatePreview();
+  };
+  img.src = dataUrl;
+}
 
 // Manual choices, for cartridges (often knockoffs) that report the wrong color.
 const COLOR_PRESETS = {
@@ -48,7 +81,7 @@ function updateButtons() {
   $('btn-connect').disabled = connected;
   $('btn-disconnect').disabled = !connected || printing;
   $('btn-status').disabled = !connected || printing;
-  $('btn-print').disabled = !connected || printing || !$('label-text').value.trim();
+  $('btn-print').disabled = !connected || printing || !hasContent(design, uploadedImage);
   $('btn-stop').hidden = !printing || stopRequested;
 }
 
@@ -92,28 +125,180 @@ const printer = new Printer({
   },
 });
 
+// Build the raster lines for the current design. Fonts must be loaded first (see loadFont).
+function renderDesign(area) {
+  const { canvas, warnings, basePx, labelDots } = renderLabel(design, area, uploadedImage);
+  return { lines: canvasToLines(canvas, area), warnings, basePx, labelDots };
+}
+
 function updatePreview() {
-  const text = $('label-text').value.trim();
   const area = PRINT_AREA[tapeMm];
-  const lines = text ? renderText(text, area) : [];
-  drawPreview($('preview'), lines, area, previewColors());
-  const mm = (lines.length / 180 * 25.4).toFixed(1);
-  $('preview-info').textContent = text
-    ? `${tapeMm} mm tape${area.verified ? '' : ' (print area not yet verified)'} · ${lines.length} lines ≈ ${mm} mm of text`
-    : '';
+  const empty = !hasContent(design, uploadedImage);
+  const { lines, warnings, basePx, labelDots } = empty ? { lines: [], warnings: [] } : renderDesign(area);
+  lastBasePx = basePx;
+  lastLabelDots = labelDots;
+  drawPreview($('preview'), lines, area, tapeMm, previewColors());
+  const mm = dotsToMm(labelDots ?? 0).toFixed(1);
+  const size = basePx ? ` · text ${Math.round(basePx / PX_PER_PT)} pt` : '';
+  $('preview-info').textContent = empty
+    ? 'Add some text or a graphic.'
+    : `${tapeMm} mm tape${area.verified ? '' : ' (print area not yet verified)'} · ${mm} mm long${design.cutMarks ? ' between the cut marks' : ' (plus a blank margin the printer adds at each end)'}${size}`;
+  $('preview-warn').hidden = !warnings.length;
+  $('preview-warn').textContent = [...new Set(warnings)].join(' ');
   updateButtons();
+  // A web font that isn't loaded yet draws as a fallback; redraw once it arrives.
+  if (FONTS[design.font]?.web && !document.fonts.check(`20px ${FONTS[design.font].css}`)) {
+    loadFont(design).then(() => document.fonts.check(`20px ${FONTS[design.font].css}`) && updatePreview());
+  }
+}
+
+// Copy the design into the form controls.
+function syncForm() {
+  $('label-text').value = design.text;
+  $('cable-mm').value = design.cableMm;
+  $('length-mode').value = design.lengthMode;
+  $('length-mm').value = design.lengthMm;
+  $('font').value = design.font;
+  $('bold').checked = design.bold;
+  $('italic').checked = design.italic;
+  $('size-mode').value = design.sizeMode;
+  $('size-pt').value = design.sizePt;
+  $('align').value = design.align;
+  $('emphasize').checked = design.emphasizeFirst;
+  $('icon-pos').value = design.iconPos;
+  $('cut-marks').checked = design.cutMarks;
+  $('cable-opts').hidden = design.template !== 'cable';
+  $('length-wrap').hidden = design.lengthMode !== 'fixed';
+  $('size-wrap').hidden = design.sizeMode !== 'fixed';
+  $('template-hint').textContent = TEMPLATES[design.template]?.hint ?? '';
+  $('template-hint').hidden = !TEMPLATES[design.template]?.hint;
+  for (const b of $('templates').children) b.classList.toggle('on', b.dataset.value === design.template);
+  for (const b of $('borders').children) b.classList.toggle('on', b.dataset.value === design.border);
+  for (const b of $('icons').children) b.classList.toggle('on', b.dataset.value === String(design.icon));
+}
+
+function setDesign(changes) {
+  Object.assign(design, changes);
+  saveDesign();
+  syncForm();
+  updatePreview();
+}
+
+function segButton(container, value, content, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.dataset.value = value;
+  if (typeof content === 'string') b.textContent = content;
+  else b.append(content);
+  b.onclick = onClick;
+  container.append(b);
+  return b;
+}
+
+function iconSvg(icon) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  const path = document.createElementNS(ns, 'path');
+  path.setAttribute('d', icon.path);
+  if (icon.evenodd) path.setAttribute('fill-rule', 'evenodd');
+  svg.append(path);
+  return svg;
+}
+
+function buildIconPicker() {
+  const box = $('icons');
+  box.innerHTML = '';
+  segButton(box, 'null', 'None', () => setDesign({ icon: null }));
+  for (const [key, icon] of Object.entries(ICONS)) {
+    segButton(box, key, iconSvg(icon), () => setDesign({ icon: key })).title = icon.name;
+  }
+  if (uploadedImage) {
+    const img = document.createElement('img');
+    img.src = uploadedImage.src;
+    segButton(box, 'upload', img, () => setDesign({ icon: 'upload' })).title = 'Your image';
+  }
+  segButton(box, 'pick', 'Upload…', () => $('upload').click()).title = 'Use your own image (PNG, JPG, SVG). Dark parts print.';
+  syncForm();
+}
+
+function buildDesigner() {
+  for (const [key, tpl] of Object.entries(TEMPLATES)) {
+    segButton($('templates'), key, tpl.name, () => {
+      const changes = { template: key, ...tpl.settings };
+      if (isSampleText(design.text)) changes.text = tpl.sample();
+      setDesign(changes);
+    });
+  }
+  for (const [key, b] of Object.entries(BORDERS)) {
+    segButton($('borders'), key, b.name, () => setDesign({ border: key }));
+  }
+  for (const [key, f] of Object.entries(FONTS)) $('font').append(new Option(f.name, key));
+  buildIconPicker();
+
+  const num = (id, min, max, fallback) => {
+    const v = parseFloat($(id).value);
+    return Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
+  };
+  // Text and number fields update the preview while typing, without rewriting the field.
+  const live = (id, fn) => {
+    $(id).oninput = () => {
+      Object.assign(design, fn());
+      saveDesign();
+      updatePreview();
+    };
+  };
+  live('label-text', () => ({ text: $('label-text').value }));
+  live('cable-mm', () => ({ cableMm: num('cable-mm', 1, 40, design.cableMm) }));
+  live('length-mm', () => ({ lengthMm: num('length-mm', 5, 500, design.lengthMm) }));
+  live('size-pt', () => ({ sizePt: num('size-pt', 4, 60, design.sizePt) }));
+
+  $('length-mode').onchange = () => {
+    const mode = $('length-mode').value;
+    // Start a fixed length from the current length, so the label doesn't jump.
+    const lengthMm = mode === 'fixed' && lastLabelDots ? Math.round(dotsToMm(lastLabelDots)) : design.lengthMm;
+    setDesign({ lengthMode: mode, lengthMm });
+  };
+  $('size-mode').onchange = () => {
+    const mode = $('size-mode').value;
+    const sizePt = mode === 'fixed' && lastBasePx ? Math.round(lastBasePx / PX_PER_PT) : design.sizePt;
+    setDesign({ sizeMode: mode, sizePt });
+  };
+  $('font').onchange = () => setDesign({ font: $('font').value });
+  $('bold').onchange = () => setDesign({ bold: $('bold').checked });
+  $('italic').onchange = () => setDesign({ italic: $('italic').checked });
+  $('align').onchange = () => setDesign({ align: $('align').value });
+  $('emphasize').onchange = () => setDesign({ emphasizeFirst: $('emphasize').checked });
+  $('icon-pos').onchange = () => setDesign({ iconPos: $('icon-pos').value });
+  $('cut-marks').onchange = () => setDesign({ cutMarks: $('cut-marks').checked });
+
+  $('upload').onchange = () => {
+    const file = $('upload').files[0];
+    $('upload').value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      design.icon = 'upload';
+      design.imageData = reader.result;
+      saveDesign();
+      loadImage(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  syncForm();
+  loadImage(design.imageData);
 }
 
 async function printLabels() {
-  const text = $('label-text').value.trim();
   const copies = Math.max(1, Math.min(50, parseInt($('copies').value, 10) || 1));
-  const cutMark = $('cut-mark').checked;
   printing = true;
   stopRequested = false;
   updateButtons();
   const started = performance.now();
   let done = 0;
   try {
+    await loadFont(design);
     for (let i = 1; i <= copies; i++) {
       $('print-state').textContent = `Printing ${i} of ${copies}…`;
       const s = await printer.requestStatus();
@@ -121,8 +306,8 @@ async function printLabels() {
       const area = PRINT_AREA[s.mediaWidthMm];
       if (!area) throw new Error(`Unsupported tape width: ${s.mediaWidthMm} mm`);
       tapeMm = s.mediaWidthMm;
-      const lines = renderText(text, area);
-      const job = buildJob(lines, { mediaType: s.mediaType, widthMm: s.mediaWidthMm, cutMark });
+      const { lines } = renderDesign(area);
+      const job = buildJob(lines, { mediaType: s.mediaType, widthMm: s.mediaWidthMm });
       log(`Label ${i}/${copies}: ${lines.length} lines, ${job.length} bytes`, 'info');
       await printer.printJob(job);
       done = i;
@@ -172,7 +357,6 @@ $('btn-stop').onclick = () => {
   stopRequested = true;
   $('btn-stop').hidden = true;
 };
-$('label-text').oninput = updatePreview;
 $('btn-clear-log').onclick = () => { logEl.innerHTML = ''; };
 
 for (const [value, [name]] of Object.entries(COLOR_PRESETS)) {
@@ -184,5 +368,6 @@ $('tape-colors').onchange = () => {
   updatePreview();
 };
 
+buildDesigner();
 updatePreview();
 log('Ready');

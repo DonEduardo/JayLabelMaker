@@ -7,6 +7,9 @@
   <title>Jay Label Maker</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Nunito:ital,wght@0,400;0,700;1,400;1,700&family=Roboto+Condensed:ital,wght@0,400;0,700;1,400;1,700&family=Roboto+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -34,9 +37,61 @@
 
     <section class="card">
       <h2>Label</h2>
-      <input id="label-text" type="text" placeholder="Label text" value="Hello">
+      <div id="templates" class="seg" role="group" aria-label="Template"></div>
+      <p id="template-hint" class="hint"></p>
+      <textarea id="label-text" rows="2" placeholder="Label text (Enter starts a new line)"></textarea>
+      <div id="cable-opts" class="row" hidden>
+        <label>Cable diameter <input id="cable-mm" type="number" min="1" max="40" step="0.5"> mm</label>
+      </div>
       <div class="preview"><canvas id="preview"></canvas></div>
       <p id="preview-info" class="hint"></p>
+      <p id="preview-warn" class="hint warn-text" hidden></p>
+
+      <div class="opts">
+        <h3>Length</h3>
+        <div class="row">
+          <select id="length-mode">
+            <option value="auto">Grow to fit</option>
+            <option value="fixed">Fixed length</option>
+          </select>
+          <label id="length-wrap"><input id="length-mm" type="number" min="5" max="500" step="1"> mm</label>
+        </div>
+
+        <h3>Text</h3>
+        <div class="row">
+          <select id="font"></select>
+          <label><input id="bold" type="checkbox"> Bold</label>
+          <label><input id="italic" type="checkbox"> Italic</label>
+        </div>
+        <div class="row">
+          <select id="size-mode">
+            <option value="auto">Size: as large as fits</option>
+            <option value="fixed">Size: custom</option>
+          </select>
+          <label id="size-wrap"><input id="size-pt" type="number" min="4" max="60" step="1"> pt</label>
+          <select id="align">
+            <option value="left">Align left</option>
+            <option value="center">Align center</option>
+            <option value="right">Align right</option>
+          </select>
+          <label><input id="emphasize" type="checkbox"> Bigger first line</label>
+        </div>
+
+        <h3>Border</h3>
+        <div id="borders" class="seg" role="group" aria-label="Border"></div>
+
+        <h3>Graphic</h3>
+        <div id="icons" class="icons" role="group" aria-label="Graphic"></div>
+        <div class="row">
+          <input id="upload" type="file" accept="image/*" hidden>
+          <select id="icon-pos">
+            <option value="left">Graphic on the left</option>
+            <option value="right">Graphic on the right</option>
+          </select>
+        </div>
+      </div>
+
+      <h3>Print</h3>
       <div class="row">
         <label>Tape colors
           <select id="tape-colors">
@@ -45,7 +100,7 @@
         </label>
       </div>
       <div class="row">
-        <label><input id="cut-mark" type="checkbox"> Cut mark</label>
+        <label title="Dotted lines at both ends of each label. Cut through them for an exact length."><input id="cut-marks" type="checkbox"> Cut marks</label>
         <label>Copies <input id="copies" type="number" min="1" max="50" value="1"></label>
         <button id="btn-print" disabled>Print</button>
         <button id="btn-stop" class="small" hidden>Stop after this label</button>
