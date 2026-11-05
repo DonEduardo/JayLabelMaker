@@ -61,8 +61,9 @@ input[type=text] {
 input[type=number] { width: 4.5em; font: inherit; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; }
 label { display: inline-flex; align-items: center; gap: 6px; }
 
-.preview { overflow-x: auto; background: #e5e7eb; padding: 10px; border-radius: 6px; margin-bottom: 6px; }
-#preview { display: block; height: 96px; image-rendering: pixelated; background: #fff; box-shadow: 0 0 0 1px #9ca3af; }
+.preview { background: #e5e7eb; padding: 10px; border-radius: 6px; margin-bottom: 6px; }
+/* One tape dot = one CSS px at most (12 mm tape is ~85 dots); shrinks to fit the width, keeping proportions. */
+#preview { display: block; width: auto; height: auto; max-width: 100%; max-height: 64px; background: #fff; box-shadow: 0 0 0 1px #9ca3af; }
 select { font: inherit; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; }
 
 h3 { margin: 14px 0 6px; font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
@@ -72,7 +73,6 @@ textarea {
   width: 100%; font: inherit; padding: 10px; margin-bottom: 10px; resize: vertical;
   border: 1px solid #d1d5db; border-radius: 8px;
 }
-#preview { height: 128px; }
 .warn-text { color: #b45309; }
 .seg { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .seg button, .icons button {
