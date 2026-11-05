@@ -91,6 +91,10 @@ Exact job sent (2365 bytes, written in one burst over ~50 ms, no throttling):
 - Chrome 156 on macOS: `port.open()` fails with "Failed to open serial port". `chrome://device-log` says
   "Failed to connect socket ... SDP query timeout" ~8 s after the link comes up. The same SDP query
   (with or without the 0x1101 UUID filter) finishes in ~0.1 s from Python, so this looks like a Chrome-on-Mac bug.
+  Confirmed: https://issues.chromium.org/issues/569041183 (filed 2026-10-03, open). On macOS 26, IOBluetooth never
+  calls back `performSDPQuery:` when there's no baseband (ACL) link yet. Works if the link is already up when Chrome
+  queries (brltty fixed the same bug that way: https://github.com/brltty/brltty/pull/569). Possible workaround to
+  test: hold an ACL link from Python (`openConnection`, no RFCOMM channel), then open the port in Chrome.
 
 ### 32-byte status packet
 Header starts `80 20 42 30 …` (0x80 head mark, 0x20 = size 32, 'B', '0').
