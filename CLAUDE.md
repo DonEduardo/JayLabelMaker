@@ -109,6 +109,19 @@ Offsets as used by stecman's script (verify against captures):
   04 power off, 05 notification, 06 phase change
 - 19 phase type, 22 notification
 
+### Feed, cutter, and chain printing (user's tests, 2026-11-05)
+- The (manual) cutter sits ~25 mm ahead of the print head. Every label printed with chain printing OFF (our app
+  always sends `1B 69 4B 08`) has ~25 mm of blank before the first cut mark, so each copy wastes ~25 mm.
+- Cutting after a print lands ~5 mm past the trailing cut mark. Likely cause: the margin `1B 69 64 1C 00`
+  (28 dots, ~4 mm) fed after the last line, plus the 1.5 mm default cut-mark gap.
+- Brother's app with chain printing ON doesn't feed out after a label, so the cutter lands mid-label. The next
+  label prints right behind it with no 25 mm leader. After the last label, double-press the power button to
+  feed it out.
+- Planned (not started): (1) chain printing for copies: `1B 69 4B 00` for all but the last copy, `08` on the last,
+  so the strip feeds out by itself; check whether the margin is still fed between chained labels.
+  (2) a margin setting to test smaller `1B 69 64` values (e.g. 2 mm, 1 mm), then place the trailing cut mark
+  where the blade actually lands.
+
 ## Known problem from the earlier attempt
 Symptoms: sometimes prints one label then freezes, needing a power-button press. Sometimes BT won't connect.
 The user recalls reading status but **never getting a "printing completed"**, with things hanging there.
