@@ -95,6 +95,9 @@ Exact job sent (2365 bytes, written in one burst over ~50 ms, no throttling):
   calls back `performSDPQuery:` when there's no baseband (ACL) link yet. Works if the link is already up when Chrome
   queries (brltty fixed the same bug that way: https://github.com/brltty/brltty/pull/569). Possible workaround to
   test: hold an ACL link from Python (`openConnection`, no RFCOMM channel), then open the port in Chrome.
+- **2026-11-05: fixed by the OS.** After updating to macOS 27.2, the web app prints from Chrome on both Macs
+  (laptop and desktop) with no workaround. If it breaks again, `tools/hold_link.py` holds the ACL link
+  (the workaround above; untested against the printer).
 
 ### 32-byte status packet
 Header starts `80 20 42 30 …` (0x80 head mark, 0x20 = size 32, 'B', '0').
