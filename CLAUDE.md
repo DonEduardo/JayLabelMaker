@@ -109,18 +109,36 @@ Offsets as used by stecman's script (verify against captures):
   04 power off, 05 notification, 06 phase change
 - 19 phase type, 22 notification
 
-### Feed, cutter, and chain printing (user's tests, 2026-11-05)
-- The (manual) cutter sits ~25 mm ahead of the print head. Every label printed with chain printing OFF (our app
-  always sends `1B 69 4B 08`) has ~25 mm of blank before the first cut mark, so each copy wastes ~25 mm.
-- Cutting after a print lands ~5 mm past the trailing cut mark. Likely cause: the margin `1B 69 64 1C 00`
-  (28 dots, ~4 mm) fed after the last line, plus the 1.5 mm default cut-mark gap.
-- Brother's app with chain printing ON doesn't feed out after a label, so the cutter lands mid-label. The next
-  label prints right behind it with no 25 mm leader. After the last label, double-press the power button to
-  feed it out.
-- Planned (not started): (1) chain printing for copies: `1B 69 4B 00` for all but the last copy, `08` on the last,
-  so the strip feeds out by itself; check whether the margin is still fed between chained labels.
-  (2) a margin setting to test smaller `1B 69 64` values (e.g. 2 mm, 1 mm), then place the trailing cut mark
-  where the blade actually lands.
+### Feed, cutter, and chain printing (tape tests 2026-11-06, verified)
+Short test labels from `tools/ptest.py`, 12 mm tape, one connection per run (connection reuse made no difference).
+- **Chain printing = `1B 69 4B` bit 3.** `4B 00` = chain ON: the label stays inside and the next label prints
+  right behind it. `4B 08` (what our app and Brother's captured jobs send) = chain OFF.
+- **`4B 08` + `4D 00` (our app today):** the label stays inside after printing, then the NEXT job first feeds ~25 mm
+  (head-to-cutter distance) before printing. So every label costs ~25 mm of blank.
+- **`4D 40`** (bit 6, Brother: "auto cut"): at the front of the label the printer draws its own small cut mark
+  (two short dots) inside the margin, and after printing it feeds the label out to the cutter.
+- **Margin `1B 69 64 n 00`** (dots, 180 dpi) is added at BOTH ends of a label. The printer's own cut mark sits in
+  the front margin, so margin 0 removes it. Margin 0 is accepted (no error).
+- Gap between chained labels (`4B 00`): ~4-5 mm at margin 28; **2.5 mm at margin 0** (calipers, trailing mark to
+  next label's first mark; our marks are at the image ends, so this is all printer feed, apparently its minimum).
+  Calipers also matched a 17-line (2.4 mm) span in our image at 2.5 mm, so 180 dpi along the tape checks out.
+- Design idea: chained labels share ONE cut mark (each label draws only its leading mark); use a 2.5 mm drawn
+  leading gap so both ends of each label get equal blank (drawn 2.5 mm + mark | content | printer's 2.5 mm).
+- Where the cutter lands past our trailing mark on a fed-out label: ~5.0 mm at margin 28 (calipers), ~2 mm at
+  margin 14, right on the mark at margin 0 (the 2-dot mark got cut through). So the cut lands ~one margin past
+  the end of the image.
+- The first label of any strip has a ~25 mm leader (the head sits ~25 mm behind the blade); unavoidable.
+- Recipe for a chained run (e.g. 5 spice labels): `4B 00`/`4D 00`, margin 0 for every label but the last; last label
+  `4B 08`/`4D 40`, margin 0 (verified: the cutter cuts on the last mark). Brother's app seems to differ (its "chain on"
+  label 1 was `4B 08`/`4D 00`), but that doesn't matter for us.
+- Verified with calipers: a fed-out label (`4B 08`/`4D 40`) at margin 0 is cut right through our trailing 2-dot mark
+  (last bar to cut edge ~2.5 mm, mark partly visible at the edge). So margin 0 = cut on the mark.
+- Unexplained: user once saw a label (margin 28, `4B 00`, followed by a `4D 40` label) without its trailing mark.
+- Mac testing notes: macOS 27.2 now creates `/dev/cu.PT-P300BT0358`, but it gave no replies; the direct
+  IOBluetooth RFCOMM route works. Opening fails with `0xe00002bc` while Chrome holds the printer (quit Chrome)
+  or for ~2 s after the previous connection closes (retry).
+- Planned (not started): chain-printing switch for any run of labels, "Feed out" button, one shared cut mark
+  between chained labels, margin 0.
 
 ## Known problem from the earlier attempt
 Symptoms: sometimes prints one label then freezes, needing a power-button press. Sometimes BT won't connect.
