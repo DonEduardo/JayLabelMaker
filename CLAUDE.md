@@ -21,7 +21,8 @@ Custom label-printing app for a **Brother PT-P300BT** (P-touch Cube), replacing 
 - Native apps (Kotlin, Swift/Python) only if the web route hits a wall.
 
 ## Dev workflow
-- Mac: `python3 -m http.server 8000` in the project folder, then open `http://localhost:8000` in Chrome.
+- Mac: `python3 tools/serve.py` (port 8000), then open `http://localhost:8000` in Chrome. It sends
+  `Cache-Control: no-store`; plain `python3 -m http.server` let Chrome keep stale JS modules after edits.
 - Android testing during dev: USB-connect the phone and use `chrome://inspect` port forwarding on the Mac,
   so the phone's `localhost:8000` maps to the Mac (still counts as secure).
 - For fast protocol iteration, prefer a **Python test script** (pyserial) against the macOS
@@ -95,9 +96,10 @@ Exact job sent (2365 bytes, written in one burst over ~50 ms, no throttling):
   calls back `performSDPQuery:` when there's no baseband (ACL) link yet. Works if the link is already up when Chrome
   queries (brltty fixed the same bug that way: https://github.com/brltty/brltty/pull/569). Possible workaround to
   test: hold an ACL link from Python (`openConnection`, no RFCOMM channel), then open the port in Chrome.
-- **2026-11-05: fixed by the OS.** After updating to macOS 27.2, the web app prints from Chrome on both Macs
-  (laptop and desktop) with no workaround. If it breaks again, `tools/hold_link.py` holds the ACL link
-  (the workaround above; untested against the printer).
+- 2026-11-05: after updating to macOS 27.2 the web app printed from Chrome on both Macs with no workaround.
+  **2026-11-07: the bug is back** (same "SDP query timeout" in `chrome://device-log`, while Python reached the
+  printer fine). So the update didn't fix it; it's intermittent. Testing `tools/hold_link.py` (hold the ACL link,
+  then Connect in Chrome): the link came up, but the result is unknown (user rebooted before trying).
 
 ### 32-byte status packet
 Header starts `80 20 42 30 …` (0x80 head mark, 0x20 = size 32, 'B', '0').
@@ -137,8 +139,8 @@ Short test labels from `tools/ptest.py`, 12 mm tape, one connection per run (con
 - Mac testing notes: macOS 27.2 now creates `/dev/cu.PT-P300BT0358`, but it gave no replies; the direct
   IOBluetooth RFCOMM route works. Opening fails with `0xe00002bc` while Chrome holds the printer (quit Chrome)
   or for ~2 s after the previous connection closes (retry).
-- Planned (not started): chain-printing switch for any run of labels, "Feed out" button, one shared cut mark
-  between chained labels, margin 0.
+- 2026-11-07: built in the web app (chain switch, Feed out, shared cut marks, margin 0 with marks, fixed length
+  counts the 2.5 mm gap, copies always chain). User tested on tape: works well.
 
 ## Known problem from the earlier attempt
 Symptoms: sometimes prints one label then freezes, needing a power-button press. Sometimes BT won't connect.

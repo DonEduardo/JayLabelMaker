@@ -28,24 +28,42 @@ export function canvasToLines(canvas, area) {
 
 // Draw raster lines back into a canvas, so the preview shows exactly what gets sent.
 // The full tape width is shown; the unprintable strips at the edges stay blank.
-export function drawPreview(canvas, lines, area, tapeMm, { tape = '#ffffff', ink = '#000000' } = {}) {
+// Extra tape around the image, in dots: `before`/`after` is blank tape the printer feeds on its own
+// (part of the label), `waste` is dimmed tape beyond that (cut off), and `ghostMark` draws a faint
+// cut mark at the end of `after` (the next label's leading mark, for a chained label).
+export function drawPreview(canvas, lines, area, tapeMm, { tape = '#ffffff', ink = '#000000' } = {},
+  { before = 0, after = 0, waste = 0, ghostMark = false } = {}) {
   const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  const [tr, tg, tb] = rgb(tape);
-  const [ir, ig, ib] = rgb(ink);
+  const mix = (a, b, t) => a.map((v, i) => Math.round(v * (1 - t) + b[i] * t));
+  const tapeC = rgb(tape);
+  const inkC = rgb(ink);
+  const wasteC = mix(tapeC, [128, 128, 128], 0.35);
+  const ghostC = mix(tapeC, inkC, 0.4);
   const { offset, dots } = area;
   const tapeDots = Math.max(dots, mmToDots(tapeMm === 4 ? 3.5 : tapeMm));
   const top = Math.floor((tapeDots - dots) / 2);
-  const w = Math.max(1, lines.length);
+  if (!lines.length) before = after = waste = 0;
+  const x0 = waste + before;
+  const w = Math.max(1, x0 + lines.length + after + waste);
   canvas.width = w;
   canvas.height = tapeDots;
   const ctx = canvas.getContext('2d');
   const img = ctx.createImageData(w, tapeDots);
-  for (let i = 0; i < img.data.length; i += 4) img.data.set([tr, tg, tb, 255], i);
+  const px = (x, y, c) => img.data.set([...c, 255], (y * w + x) * 4);
+  for (let y = 0; y < tapeDots; y++) {
+    for (let x = 0; x < w; x++) px(x, y, x < waste || x >= w - waste ? wasteC : tapeC);
+  }
   lines.forEach((line, x) => {
     for (let y = 0; y < dots; y++) {
       const bit = offset + y;
-      if (line[bit >> 3] & (0x80 >> (bit & 7))) img.data.set([ir, ig, ib, 255], ((top + y) * w + x) * 4);
+      if (line[bit >> 3] & (0x80 >> (bit & 7))) px(x0 + x, top + y, inkC);
     }
   });
+  if (ghostMark && lines.length) {
+    // Same pattern as the drawn cut mark: 2 dots wide, 4 on / 3 off.
+    for (let x = w - waste - 2; x < w - waste; x++) {
+      for (let y = 0; y < dots; y++) if (y % 7 < 4) px(x, top + y, ghostC);
+    }
+  }
   ctx.putImageData(img, 0, 0);
 }

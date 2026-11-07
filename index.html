@@ -15,7 +15,10 @@
 <body>
   <header>
     <h1>Jay Label Maker</h1>
-    <span id="conn-state" class="pill off">Disconnected</span>
+    <div class="row">
+      <span id="conn-state" class="pill off">Disconnected</span>
+      <button id="btn-connect" class="small connect" title="Pair the PT-P300BT in your device's Bluetooth settings first.">Connect</button>
+    </div>
   </header>
 
   <main>
@@ -25,18 +28,6 @@
     </section>
 
     <section class="card">
-      <h2>Printer</h2>
-      <p class="hint">Pair the PT-P300BT with your device's Bluetooth settings first.</p>
-      <div class="row">
-        <button id="btn-connect">Connect</button>
-        <button id="btn-disconnect" disabled>Disconnect</button>
-        <button id="btn-status" disabled>Request status</button>
-      </div>
-      <dl id="status" class="status"></dl>
-    </section>
-
-    <section class="card">
-      <h2>Label</h2>
       <div id="templates" class="seg" role="group" aria-label="Template"></div>
       <p id="template-hint" class="hint"></p>
       <textarea id="label-text" rows="2" placeholder="Label text (Enter starts a new line)"></textarea>
@@ -48,6 +39,19 @@
       <p id="preview-info" class="hint"></p>
       <p id="preview-warn" class="hint warn-text" hidden></p>
 
+      <div class="row print-row">
+        <label>Copies <input id="copies" type="number" min="1" max="50" value="1"></label>
+        <label title="Leave each label inside the printer so the next one prints right behind it, without the 25 mm leader. Saves tape when printing several different labels."><input id="chain" type="checkbox"> Chain printing</label>
+        <button id="btn-print" disabled>Print</button>
+        <button id="btn-feed" disabled title="Finish a chained strip: print its closing cut mark and feed it out to the cutter.">Feed out</button>
+        <button id="btn-stop" class="small" hidden>Stop after this label</button>
+      </div>
+      <p id="chain-hint" class="hint" hidden></p>
+      <p id="print-state" class="hint"></p>
+    </section>
+
+    <details id="more-options" class="card">
+      <summary>More options</summary>
       <div class="opts">
         <h3>Length</h3>
         <div class="row">
@@ -93,33 +97,35 @@
             <option value="right">Graphic on the right</option>
           </select>
         </div>
-      </div>
 
-      <h3>Print</h3>
-      <div class="row">
-        <label>Tape colors
-          <select id="tape-colors">
-            <option value="auto">Auto (from printer)</option>
-          </select>
-        </label>
-      </div>
-      <div class="row">
-        <label title="Dotted lines at both ends of each label. Cut through them for an exact length."><input id="cut-marks" type="checkbox"> Cut marks</label>
-        <label id="cut-gap-wrap" title="Blank tape between each cut mark and the label">Gap <input id="cut-gap" type="number" min="0" max="10" step="0.5"> mm</label>
-        <label>Copies <input id="copies" type="number" min="1" max="50" value="1"></label>
-        <button id="btn-print" disabled>Print</button>
-        <button id="btn-stop" class="small" hidden>Stop after this label</button>
-      </div>
-      <p id="print-state" class="hint"></p>
-    </section>
+        <h3>Cut marks</h3>
+        <div class="row">
+          <label title="Dotted lines at both ends of each label. Cut through them for an exact length."><input id="cut-marks" type="checkbox"> Cut marks</label>
+          <label id="cut-gap-wrap" title="Blank tape between each cut mark and the label">Gap <input id="cut-gap" type="number" min="0" max="10" step="0.5"> mm</label>
+        </div>
 
-    <section class="card">
-      <div class="row spread">
-        <h2>Log</h2>
-        <button id="btn-clear-log" class="small">Clear</button>
+        <h3>Preview colors</h3>
+        <div class="row">
+          <label>Tape colors
+            <select id="tape-colors">
+              <option value="auto">Auto (from printer)</option>
+            </select>
+          </label>
+        </div>
       </div>
+    </details>
+
+    <details id="printer-details" class="card">
+      <summary>Printer status and log</summary>
+      <p class="hint">Pair the PT-P300BT with your device's Bluetooth settings first, then press Connect at the top.</p>
+      <div class="row">
+        <button id="btn-disconnect" class="small" disabled>Disconnect</button>
+        <button id="btn-status" class="small" disabled>Request status</button>
+        <button id="btn-clear-log" class="small">Clear log</button>
+      </div>
+      <dl id="status" class="status"></dl>
       <pre id="log"></pre>
-    </section>
+    </details>
   </main>
 
   <script type="module" src="js/app.js"></script>

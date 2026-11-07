@@ -148,8 +148,16 @@ export function packBits(src) {
   return out;
 }
 
+// Feed and chain settings, from tape tests (see CLAUDE.md, "Feed, cutter, and chain printing").
+export const MARGIN_DOTS = 28; // the printer's default margin (~4 mm); it adds it at both ends of a label
+export const PRINTER_GAP_DOTS = 18; // blank the printer feeds between chained labels at margin 0 (2.5 mm measured)
+
 // Build a complete one-label job. `lines` is an array of 16-byte raster lines.
-export function buildJob(lines, { mediaType, widthMm, cutMark = false }) {
+// chain: leave the tape inside so the next label prints right behind this one.
+// feedOut: feed the label out to the cutter after printing (the printer also draws its own cut mark in the
+//   front margin, if there is one). With margin 0 the cutter lands on the last raster line.
+// marginDots: blank tape the printer adds at each end of the label.
+export function buildJob(lines, { mediaType, widthMm, chain = false, feedOut = true, marginDots = 0 }) {
   const n = lines.length;
   const bytes = [
     ...CMD.invalidate,
@@ -158,9 +166,9 @@ export function buildJob(lines, { mediaType, widthMm, cutMark = false }) {
     // Print info. The line count here MUST equal the number of lines sent.
     0x1b, 0x69, 0x7a, 0x84, mediaType, widthMm, 0x00,
     n & 0xff, (n >> 8) & 0xff, (n >> 16) & 0xff, (n >>> 24) & 0xff, 0x00, 0x00,
-    0x1b, 0x69, 0x4b, 0x08,
-    0x1b, 0x69, 0x4d, cutMark ? 0x40 : 0x00,
-    0x1b, 0x69, 0x64, 0x1c, 0x00,
+    0x1b, 0x69, 0x4b, chain ? 0x00 : 0x08, // bit 3 set = chain printing off
+    0x1b, 0x69, 0x4d, feedOut && !chain ? 0x40 : 0x00,
+    0x1b, 0x69, 0x64, marginDots & 0xff, (marginDots >> 8) & 0xff,
     0x4d, 0x02,
   ];
   for (const line of lines) {

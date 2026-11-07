@@ -3,6 +3,7 @@
 // The canvas is then turned into raster lines by render.js.
 
 import { capacity, encodeQr } from './qr.js';
+import { PRINTER_GAP_DOTS } from './protocol.js';
 
 export const DPI = 180;
 export const mmToDots = (mm) => Math.round((mm / 25.4) * DPI);
@@ -331,42 +332,65 @@ function renderPanel(d, H, fixedW, image, warnings) {
 
 // Render the whole label. Returns { canvas, warnings, basePx, labelDots }: canvas is
 // `area.dots` tall and one pixel per raster line wide; labelDots is the finished label's
-// length (between the cut marks, if any).
-export function renderLabel(d, area, image = null) {
+// length on tape (between the cut marks, if any).
+// chained: the label is printed with chain printing on, so the next label follows right behind it.
+//   It gets only a leading cut mark; the printer's PRINTER_GAP_DOTS of blank tape plus the next
+//   label's leading mark close it off, and a fixed length counts that gap.
+// forceMarks: draw cut marks even if the design has them off (a run of labels needs them).
+export function renderLabel(d, area, image = null, { chained = false, forceMarks = false } = {}) {
   const warnings = [];
+  const marks = d.cutMarks || forceMarks || chained;
   // Blank tape between each cut mark and the label. A fixed length includes it.
-  const end = d.cutMarks ? mmToDots(Math.max(0, d.cutGapMm ?? 1.5)) : 0;
+  const lead = marks ? mmToDots(Math.max(0, d.cutGapMm ?? 1.5)) : 0;
+  // After a chained label the printer adds its gap on its own, so draw only what's missing.
+  const tail = chained ? Math.max(lead, PRINTER_GAP_DOTS) : lead;
+  const drawnTail = chained ? tail - PRINTER_GAP_DOTS : tail;
   let fixedW = null;
   if (d.lengthMode === 'fixed') {
-    fixedW = mmToDots(d.lengthMm) - 2 * end;
+    fixedW = mmToDots(d.lengthMm) - lead - tail;
     if (fixedW < mmToDots(5)) {
       warnings.push('The cut mark gap leaves too little room in this length.');
       fixedW = mmToDots(5);
     }
   }
   const { canvas, basePx } = renderBody(d, area.dots, fixedW, image, warnings);
-  if (!d.cutMarks) return { canvas, warnings, basePx, labelDots: canvas.width };
-  const out = withCutMarks(canvas, end);
-  return { canvas: out, warnings, basePx, labelDots: canvas.width + 2 * end };
+  if (!marks) return { canvas, warnings, basePx, labelDots: canvas.width };
+  const out = withCutMarks(canvas, lead, drawnTail, !chained);
+  return { canvas: out, warnings, basePx, labelDots: lead + canvas.width + tail };
 }
 
 export const CUT_MARK_DOTS = 2;
 
-// [mark][end][label][end][mark]. Cut through the marks; the length between the marks'
-// inner edges is the label length.
-function withCutMarks(label, end) {
+function drawCutMark(ctx, x, H) {
+  ctx.fillStyle = '#000';
+  for (let y = 0; y < H; y += 7) ctx.fillRect(x, y, CUT_MARK_DOTS, 4);
+}
+
+// [mark][lead][label][tail][mark]; a chained label leaves out the trailing mark.
+// Cut through the marks; the length between the marks' inner edges is the label length.
+function withCutMarks(label, lead, tail, trailingMark) {
   const H = label.height;
   const canvas = document.createElement('canvas');
-  canvas.width = label.width + 2 * (end + CUT_MARK_DOTS);
+  canvas.width = CUT_MARK_DOTS + lead + label.width + tail + (trailingMark ? CUT_MARK_DOTS : 0);
   canvas.height = H;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, canvas.width, H);
-  ctx.drawImage(label, CUT_MARK_DOTS + end, 0);
-  ctx.fillStyle = '#000';
-  for (const x of [0, canvas.width - CUT_MARK_DOTS]) {
-    for (let y = 0; y < H; y += 7) ctx.fillRect(x, y, CUT_MARK_DOTS, 4);
-  }
+  ctx.drawImage(label, CUT_MARK_DOTS + lead, 0);
+  drawCutMark(ctx, 0, H);
+  if (trailingMark) drawCutMark(ctx, canvas.width - CUT_MARK_DOTS, H);
+  return canvas;
+}
+
+// Just a cut mark: printed by "Feed out" to close off a chained label.
+export function renderCutMark(area) {
+  const canvas = document.createElement('canvas');
+  canvas.width = CUT_MARK_DOTS;
+  canvas.height = area.dots;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawCutMark(ctx, 0, canvas.height);
   return canvas;
 }
 

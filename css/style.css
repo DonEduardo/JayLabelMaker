@@ -84,3 +84,25 @@ textarea {
 .icons svg { width: 26px; height: 26px; }
 .icons img { max-width: 40px; max-height: 30px; }
 #qr-text { margin-bottom: 0; }
+
+/* Connect sits in the header. */
+header .row { gap: 10px; }
+header button.connect { background: var(--accent); padding: 6px 14px; }
+
+/* The print controls sit right under the preview. */
+.print-row { margin-top: 4px; }
+.print-row #btn-print { padding: 10px 28px; font-weight: 600; }
+.print-row #btn-feed { background: #4b5563; }
+.print-row #btn-feed:disabled { background: #9ca3af; }
+#print-state:empty { display: none; }
+
+/* Collapsible cards: more options, printer status and log. */
+details.card { padding: 0 16px; }
+details.card > summary {
+  cursor: pointer; padding: 12px 0; font-weight: 600; font-size: .95rem; list-style-position: inside;
+}
+details.card[open] { padding-bottom: 14px; }
+details .opts { border-top: 0; margin-top: 0; }
+details .opts > h3:first-child { margin-top: 2px; }
+details .status { margin-bottom: 10px; }
+#log { height: 200px; }

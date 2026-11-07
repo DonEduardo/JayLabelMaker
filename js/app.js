@@ -1,9 +1,9 @@
 import { Printer } from './printer.js';
-import { PRINT_AREA, buildJob } from './protocol.js';
+import { MARGIN_DOTS, PRINTER_GAP_DOTS, PRINT_AREA, buildJob } from './protocol.js';
 import { canvasToLines, drawPreview } from './render.js';
 import {
   BORDERS, DEFAULT_DESIGN, FONTS, ICONS, PX_PER_PT, TEMPLATES,
-  dotsToMm, hasContent, isSampleText, loadFont, renderLabel,
+  CUT_MARK_DOTS, dotsToMm, hasContent, mmToDots, isSampleText, loadFont, renderCutMark, renderLabel,
 } from './design.js';
 
 const $ = (id) => document.getElementById(id);
@@ -25,6 +25,19 @@ let tapeMm = 12; // assumed until the printer reports its tape
 let printerColors = {}; // preview colors as reported by the printer
 let lastBasePx = null; // font size the last render picked, to prefill "custom size"
 let lastLabelDots = 0; // label length in the last render, to prefill "fixed length"
+
+// Chain printing: labels stay inside the printer so the next one prints right behind it.
+// `parked` = the last label printed was chained, so it still needs a label after it or "Feed out".
+const readFlag = (key) => { try { return localStorage.getItem(key) === '1'; } catch { return false; } };
+const writeFlag = (key, on) => { try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* ignore */ } };
+let chainOn = readFlag('chain');
+let parked = readFlag('parked');
+
+const copiesWanted = () => Math.max(1, Math.min(50, parseInt($('copies').value, 10) || 1));
+
+// A run of labels (chained, several copies, or following a parked label) needs cut marks to cut it apart.
+const marksForced = () => chainOn || parked || copiesWanted() > 1;
+const marksOn = () => design.cutMarks || marksForced();
 
 // The label design, saved between visits. An uploaded graphic is kept as a data URL.
 let design = { ...DEFAULT_DESIGN };
@@ -78,10 +91,11 @@ function previewColors() {
 function updateButtons() {
   $('conn-state').textContent = connected ? 'Connected' : 'Disconnected';
   $('conn-state').className = `pill ${connected ? 'on' : 'off'}`;
-  $('btn-connect').disabled = connected;
+  $('btn-connect').hidden = connected;
   $('btn-disconnect').disabled = !connected || printing;
   $('btn-status').disabled = !connected || printing;
   $('btn-print').disabled = !connected || printing || !hasContent(design, uploadedImage);
+  $('btn-feed').disabled = !connected || printing;
   $('btn-stop').hidden = !printing || stopRequested;
 }
 
@@ -126,8 +140,10 @@ const printer = new Printer({
 });
 
 // Build the raster lines for the current design. Fonts must be loaded first (see loadFont).
-function renderDesign(area) {
-  const { canvas, warnings, basePx, labelDots } = renderLabel(design, area, uploadedImage);
+// chained: print this label with chain printing on (see renderLabel).
+function renderDesign(area, chained = chainOn) {
+  const opts = { chained, forceMarks: marksForced() };
+  const { canvas, warnings, basePx, labelDots } = renderLabel(design, area, uploadedImage, opts);
   return { lines: canvasToLines(canvas, area), warnings, basePx, labelDots };
 }
 
@@ -137,12 +153,18 @@ function updatePreview() {
   const { lines, warnings, basePx, labelDots } = empty ? { lines: [], warnings: [] } : renderDesign(area);
   lastBasePx = basePx;
   lastLabelDots = labelDots;
-  drawPreview($('preview'), lines, area, tapeMm, previewColors());
+  // Show the tape around the label too, so the cut marks don't sit on the preview's edge.
+  // With marks, the cuts land on them (margin 0); a chained label is followed by the printer's
+  // gap and the next label's mark. Without marks, the printer adds its margin at both ends.
+  const ends = !marksOn()
+    ? { before: MARGIN_DOTS, after: MARGIN_DOTS }
+    : chainOn ? { after: PRINTER_GAP_DOTS + CUT_MARK_DOTS, ghostMark: true } : {};
+  drawPreview($('preview'), lines, area, tapeMm, previewColors(), { waste: mmToDots(4), ...ends });
   const mm = dotsToMm(labelDots ?? 0).toFixed(1);
   const size = basePx ? ` · text ${Math.round(basePx / PX_PER_PT)} pt` : '';
   $('preview-info').textContent = empty
     ? 'Add some text or a graphic.'
-    : `${tapeMm} mm tape${area.verified ? '' : ' (print area not yet verified)'} · ${mm} mm long${design.cutMarks ? ' between the cut marks' : ' (plus a blank margin the printer adds at each end)'}${size}`;
+    : `${tapeMm} mm tape${area.verified ? '' : ' (print area not yet verified)'} · ${mm} mm long${marksOn() ? ' between the cut marks' : ' (plus a blank margin the printer adds at each end)'}${size}`;
   $('preview-warn').hidden = !warnings.length;
   $('preview-warn').textContent = [...new Set(warnings)].join(' ');
   updateButtons();
@@ -166,9 +188,20 @@ function syncForm() {
   $('align').value = design.align;
   $('emphasize').checked = design.emphasizeFirst;
   $('icon-pos').value = design.iconPos;
-  $('cut-marks').checked = design.cutMarks;
+  $('cut-marks').checked = marksOn();
+  $('cut-marks').disabled = marksForced();
+  $('cut-marks').parentElement.title = marksForced()
+    ? 'Always on when printing a run of labels: cut the strip apart at the marks.'
+    : 'Dotted lines at both ends of each label. Cut through them for an exact length.';
   $('cut-gap').value = design.cutGapMm;
-  $('cut-gap-wrap').hidden = !design.cutMarks;
+  $('cut-gap-wrap').hidden = !marksOn();
+  $('chain').checked = chainOn;
+  $('chain-hint').textContent = parked
+    ? 'The last label is still inside the printer. Print the next one, or press Feed out to finish the strip.'
+    : chainOn
+      ? 'Each label stays inside so the next one prints right behind it. Turn this off for the last label, or press Feed out after it.'
+      : '';
+  $('chain-hint').hidden = !parked && !chainOn;
   $('center-marks').checked = design.centerMarks;
   $('qr-text').value = design.qrText;
   $('qr-opts').hidden = design.icon !== 'qr';
@@ -282,6 +315,16 @@ function buildDesigner() {
   $('emphasize').onchange = () => setDesign({ emphasizeFirst: $('emphasize').checked });
   $('icon-pos').onchange = () => setDesign({ iconPos: $('icon-pos').value });
   $('cut-marks').onchange = () => setDesign({ cutMarks: $('cut-marks').checked });
+  $('chain').onchange = () => {
+    chainOn = $('chain').checked;
+    writeFlag('chain', chainOn);
+    syncForm();
+    updatePreview();
+  };
+  $('copies').oninput = () => {
+    syncForm();
+    updatePreview();
+  };
   $('center-marks').onchange = () => setDesign({ centerMarks: $('center-marks').checked });
 
   $('upload').onchange = () => {
@@ -303,7 +346,7 @@ function buildDesigner() {
 }
 
 async function printLabels() {
-  const copies = Math.max(1, Math.min(50, parseInt($('copies').value, 10) || 1));
+  const copies = copiesWanted();
   printing = true;
   stopRequested = false;
   updateButtons();
@@ -318,11 +361,18 @@ async function printLabels() {
       const area = PRINT_AREA[s.mediaWidthMm];
       if (!area) throw new Error(`Unsupported tape width: ${s.mediaWidthMm} mm`);
       tapeMm = s.mediaWidthMm;
-      const { lines } = renderDesign(area);
-      const job = buildJob(lines, { mediaType: s.mediaType, widthMm: s.mediaWidthMm });
-      log(`Label ${i}/${copies}: ${lines.length} lines, ${job.length} bytes`, 'info');
+      // Copies always chain; the last one feeds out to the cutter unless chain printing is on.
+      const chained = chainOn || i < copies;
+      const { lines } = renderDesign(area, chained);
+      // With cut marks the cutter should land on the last mark, so no margin. Without them, keep the
+      // printer's margin (it also draws its own cut mark there).
+      const marginDots = marksOn() ? 0 : MARGIN_DOTS;
+      const job = buildJob(lines, { mediaType: s.mediaType, widthMm: s.mediaWidthMm, chain: chained, marginDots });
+      log(`Label ${i}/${copies}: ${lines.length} lines, ${job.length} bytes${chained ? ', chained' : ', feeds out'}`, 'info');
       await printer.printJob(job);
       done = i;
+      parked = chained;
+      writeFlag('parked', parked);
       log(`Label ${i}/${copies} printed`, 'info');
       if (stopRequested && i < copies) {
         log('Stopped by user', 'info');
@@ -336,7 +386,33 @@ async function printLabels() {
     $('print-state').textContent = `Failed after ${done} label${done === 1 ? '' : 's'}: ${err.message}`;
   } finally {
     printing = false;
-    updateButtons();
+    syncForm();
+    updatePreview();
+  }
+}
+
+// Close off a chained strip: print just a cut mark and feed it out, so the cutter cuts on that mark.
+async function feedOut() {
+  printing = true;
+  updateButtons();
+  try {
+    const s = await printer.requestStatus();
+    if (s.errors.length) throw new Error(`Printer reports: ${s.errors.join(', ')}`);
+    const area = PRINT_AREA[s.mediaWidthMm];
+    if (!area) throw new Error(`Unsupported tape width: ${s.mediaWidthMm} mm`);
+    const lines = canvasToLines(renderCutMark(area), area);
+    log('Feed out: closing cut mark', 'info');
+    await printer.printJob(buildJob(lines, { mediaType: s.mediaType, widthMm: s.mediaWidthMm, marginDots: 0 }));
+    parked = false;
+    writeFlag('parked', false);
+    $('print-state').textContent = 'Fed out. Cut at the mark.';
+  } catch (err) {
+    log(`Feed out failed: ${err.message}`, 'err');
+    $('print-state').textContent = `Feed out failed: ${err.message}`;
+  } finally {
+    printing = false;
+    syncForm();
+    updatePreview();
   }
 }
 
@@ -365,6 +441,7 @@ $('btn-status').onclick = async () => {
 };
 
 $('btn-print').onclick = printLabels;
+$('btn-feed').onclick = feedOut;
 $('btn-stop').onclick = () => {
   stopRequested = true;
   $('btn-stop').hidden = true;
@@ -379,6 +456,13 @@ $('tape-colors').onchange = () => {
   localStorage.setItem('tapeColors', $('tape-colors').value);
   updatePreview();
 };
+
+// Collapsible sections remember whether they were left open.
+for (const id of ['more-options', 'printer-details']) {
+  const el = $(id);
+  try { el.open = localStorage.getItem(id) === 'open'; } catch { /* ignore */ }
+  el.ontoggle = () => { try { localStorage.setItem(id, el.open ? 'open' : 'closed'); } catch { /* ignore */ } };
+}
 
 buildDesigner();
 updatePreview();
