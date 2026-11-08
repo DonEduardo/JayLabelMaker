@@ -14,11 +14,11 @@ export const STATUS = { REPLY: 0x00, COMPLETED: 0x01, ERROR: 0x02, PHASE_CHANGE:
 export const LINE_BYTES = 16; // 128 dots across the head
 
 // Printable dots per tape width (mm, as reported in status byte 10).
-// 12 mm is verified from the capture. Others are from Brother's PT-P710BT reference.
+// 12 mm (capture) and 6 mm (printed) are verified. Others are from Brother's PT-P710BT reference.
 export const PRINT_AREA = {
   12: { offset: 32, dots: 64, verified: true },
   9: { offset: 39, dots: 50 },
-  6: { offset: 48, dots: 32 },
+  6: { offset: 48, dots: 32, verified: true },
   4: { offset: 52, dots: 24 }, // 3.5 mm tape
 };
 

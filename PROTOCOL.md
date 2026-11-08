@@ -53,7 +53,8 @@ Brother's app sends it twice before each job.
 - Dot `d` is bit `0x80 >> (d % 8)` of byte `d / 8` (dot 0 = MSB of byte 0). Set bit = black.
 - One raster line = one column of a horizontal label. Lines go from the label's left end to its right end;
   the label's top edge is the lowest dot number. 180 dpi along the tape too (one line = 0.141 mm).
-- Printable area on **12 mm tape: dots 32..95** (64 dots, 32 blank dots each side). Only 12 mm is verified.
+- Printable area on **12 mm tape: dots 32..95** (64 dots, 32 blank each side); **6 mm tape: dots 48..79** (32 dots,
+  48 blank each side). Other widths are not verified.
 - Every line is PackBits-compressed (each line separately, decompresses to 16 bytes):
   - run of 2..128 equal bytes: `(257 - run) & 0xFF`, then the byte
   - 1..128 literal bytes: `count - 1`, then the bytes
@@ -142,8 +143,8 @@ The printer has a manual cutter about **25 mm** in front of the head.
 
 ## Not verified
 
-- Print areas for 9, 6 and 3.5 mm tape (from Brother's PT-P710BT reference, in `PRINT_AREA` in `js/protocol.js`):
-  9 mm dots 39..88, 6 mm dots 48..79, 3.5 mm dots 52..75.
+- Print areas for 9 and 3.5 mm tape (from Brother's PT-P710BT reference, in `PRINT_AREA` in `js/protocol.js`):
+  9 mm dots 39..88, 3.5 mm dots 52..75.
 - Error bits and battery values have not been seen on a real error.
 - `5A` (blank raster line shortcut) is not used and not tested.
 - iOS: the External Accessory protocol string the printer advertises (Brother's SDK is believed to use
