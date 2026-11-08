@@ -3,7 +3,7 @@
 // The canvas is then turned into raster lines by render.js.
 
 import { capacity, encodeQr } from './qr.js';
-import { PRINTER_GAP_DOTS } from './protocol.js';
+import { MARGIN_DOTS, PRINTER_GAP_DOTS } from './protocol.js';
 
 export const DPI = 180;
 export const mmToDots = (mm) => Math.round((mm / 25.4) * DPI);
@@ -232,8 +232,8 @@ function fitBlock(d, lines, maxW, maxH) {
 }
 
 // Render one panel (the whole label, or one half of a cable flag).
-// fixedW: width in dots, or null to grow to fit.
-function renderPanel(d, H, fixedW, image, warnings) {
+// fixedW: width in dots, or null to grow to fit. edge: blank tape outside the panel's ends.
+function renderPanel(d, H, fixedW, image, warnings, edge = 0) {
   const b = BORDERS[d.border] ?? BORDERS.none;
   const space = borderSpace(b);
   const padY = space ? space + 3 : 1;
@@ -245,7 +245,9 @@ function renderPanel(d, H, fixedW, image, warnings) {
   const lines = textLines(d);
   let g = graphicFor(d, image);
   let gH = innerH;
-  let gap = g && lines.length ? Math.round(H * 0.08) : 0;
+  // Space between graphic and text matches the blank in front of the graphic: the padding inside
+  // a border, or (without side borders) the blank tape before the label plus the padding.
+  let gap = g && lines.length ? (sideSpace ? padX : edge + padX) : 0;
   if (g?.qrText) {
     // Without a border the code can use the full height; the tape beyond the print area
     // is its quiet zone. Along the tape, keep a few modules clear of text and border.
@@ -346,7 +348,9 @@ export function renderLabel(d, area, image = null, { chained = false, forceMarks
       fixedW = mmToDots(5);
     }
   }
-  const { canvas, basePx } = renderBody(d, area.dots, fixedW, image, warnings);
+  // Blank tape in front of the label: the cut mark gap, or the printer's own margin without marks.
+  const edge = marks ? lead : MARGIN_DOTS;
+  const { canvas, basePx } = renderBody(d, area.dots, fixedW, image, warnings, edge);
   if (!marks) return { canvas, warnings, basePx, labelDots: canvas.width };
   const out = withCutMarks(canvas, lead, drawnTail, !chained);
   return { canvas: out, warnings, basePx, labelDots: lead + canvas.width + tail };
@@ -388,10 +392,10 @@ export function renderCutMark(area) {
 }
 
 // fixedW: body width in dots, or null to grow to fit.
-function renderBody(d, H, fixedW, image, warnings) {
+function renderBody(d, H, fixedW, image, warnings, edge) {
 
   if (d.template !== 'cable') {
-    const panel = renderPanel(d, H, fixedW, image, warnings);
+    const panel = renderPanel(d, H, fixedW, image, warnings, edge);
     return { canvas: panel.canvas, basePx: panel.basePx };
   }
 
@@ -405,7 +409,7 @@ function renderBody(d, H, fixedW, image, warnings) {
       halfW = mmToDots(5);
     }
   }
-  const panel = renderPanel(d, H, halfW, image, warnings);
+  const panel = renderPanel(d, H, halfW, image, warnings, edge);
   const pw = panel.canvas.width;
   const canvas = document.createElement('canvas');
   canvas.width = fixedW && fixedW > 2 * pw + gapW ? fixedW : 2 * pw + gapW;
