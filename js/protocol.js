@@ -1,6 +1,6 @@
-// Brother P-touch raster protocol helpers. See CLAUDE.md for the command reference.
+// Brother P-touch raster protocol helpers. See PROTOCOL.md for the command reference.
 
-// Byte sequences match a capture of Brother's own app (see CLAUDE.md).
+// Byte sequences match a capture of Brother's own app (see PROTOCOL.md).
 export const CMD = {
   invalidate: new Uint8Array(100),                    // 100 x 0x00
   rasterMode: Uint8Array.of(0x1b, 0x69, 0x61, 0x01),
@@ -148,7 +148,7 @@ export function packBits(src) {
   return out;
 }
 
-// Feed and chain settings, from tape tests (see CLAUDE.md, "Feed, cutter, and chain printing").
+// Feed and chain settings, from tape tests (see PROTOCOL.md, "Feed, cutter and chain printing").
 export const MARGIN_DOTS = 28; // the printer's default margin (~4 mm); it adds it at both ends of a label
 export const PRINTER_GAP_DOTS = 18; // blank the printer feeds between chained labels at margin 0 (2.5 mm measured)
 

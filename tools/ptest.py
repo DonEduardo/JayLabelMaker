@@ -12,7 +12,7 @@ dotted cut marks with a 1.5 mm gap. All labels in one command go over one connec
   MARGIN_DOTS: 1B 69 64 value, dots at 180 dpi (28 = ~4 mm, 0 = none)
 Example, 2 chained labels then one that feeds out, no margin:
     .venv/bin/python tools/ptest.py print 3:00:00,4:00:00,5:40:08 0 marks
-Findings from these tests are in CLAUDE.md ("Feed, cutter, and chain printing").
+Findings from these tests are in PROTOCOL.md ("Feed, cutter and chain printing").
 """
 import sys
 import time
