@@ -45,7 +45,7 @@ const BORDER_INSET = 2; // keep lines off the very edge of the printable area
 
 // Built-in graphics: SVG path data, 24 units tall unless h says otherwise; w = width (default 24).
 export const ICONS = {
-  hv: { name: 'High voltage', w: 18, path: 'M11.5.5.5 14H8L5.5 23.5l12-14H10z' },
+  hv: { name: 'High voltage', w: 12, path: 'M6 .5H11.5L7.7 10H11L3 23.5 4.6 13H1z' },
   warning: { name: 'Warning', path: 'M12 1 23.5 21.5H.5zM12 4.5 3.4 19.8h17.2zM10.8 8.6h2.4v6.4h-2.4zM10.8 16.2h2.4v2.4h-2.4z', evenodd: true },
   dcpos: { name: 'DC jack: center positive', w: 48, h: 16, path: 'M30.63 11.5A7.5 7.5 0 1 1 30.63 4.5H28.24A5.5 5.5 0 1 0 28.24 11.5zM21.5 8A2.5 2.5 0 1 1 26.5 8A2.5 2.5 0 1 1 21.5 8zM24 7H35.5V9H24zM12.5 7H17V9H12.5zM1 8A6 6 0 1 1 13 8A6 6 0 1 1 1 8zM2.5 8A4.5 4.5 0 1 0 11.5 8A4.5 4.5 0 1 0 2.5 8zM35 8A6 6 0 1 1 47 8A6 6 0 1 1 35 8zM36.5 8A4.5 4.5 0 1 0 45.5 8A4.5 4.5 0 1 0 36.5 8zM4.4 7.2H9.6V8.8H4.4zM38.4 7.2H43.6V8.8H38.4zM40.2 5.4H41.8V10.6H40.2z' },
   dcneg: { name: 'DC jack: center negative', w: 48, h: 16, path: 'M30.63 11.5A7.5 7.5 0 1 1 30.63 4.5H28.24A5.5 5.5 0 1 0 28.24 11.5zM21.5 8A2.5 2.5 0 1 1 26.5 8A2.5 2.5 0 1 1 21.5 8zM24 7H35.5V9H24zM12.5 7H17V9H12.5zM1 8A6 6 0 1 1 13 8A6 6 0 1 1 1 8zM2.5 8A4.5 4.5 0 1 0 11.5 8A4.5 4.5 0 1 0 2.5 8zM35 8A6 6 0 1 1 47 8A6 6 0 1 1 35 8zM36.5 8A4.5 4.5 0 1 0 45.5 8A4.5 4.5 0 1 0 36.5 8zM4.4 7.2H9.6V8.8H4.4zM6.2 5.4H7.8V10.6H6.2zM38.4 7.2H43.6V8.8H38.4z' },
