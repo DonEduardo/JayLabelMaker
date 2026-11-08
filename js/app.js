@@ -236,7 +236,7 @@ function segButton(container, value, content, onClick) {
 function iconSvg(icon) {
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('viewBox', `0 0 ${icon.w ?? 24} ${icon.h ?? 24}`);
   const path = document.createElementNS(ns, 'path');
   path.setAttribute('d', icon.path);
   if (icon.evenodd) path.setAttribute('fill-rule', 'evenodd');

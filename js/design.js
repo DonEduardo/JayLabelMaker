@@ -43,21 +43,13 @@ export const BORDERS = {
 };
 const BORDER_INSET = 2; // keep lines off the very edge of the printable area
 
-// Built-in graphics: SVG path data on a 24 x 24 grid.
+// Built-in graphics: SVG path data, 24 units tall unless h says otherwise; w = width (default 24).
 export const ICONS = {
-  bolt: { name: 'Power', path: 'M13 2 4 14h7l-1 8 10-13h-7z' },
-  plug: { name: 'Plug', path: 'M8 2h2v5H8zM14 2h2v5h-2zM5 7h14v4a7 7 0 0 1-6 6.9V22h-2v-4.1A7 7 0 0 1 5 11z' },
-  network: { name: 'Network', path: 'M9 2h6v5H9zM2 17h6v5H2zM16 17h6v5h-6zM11 7h2v4h-2zM4 11h16v2H4zM4 13h2v4H4zM18 13h2v4h-2z' },
-  home: { name: 'Home', path: 'M12 3 2 12h3v8h5v-6h4v6h5v-8h3z' },
-  jar: { name: 'Jar', path: 'M7 2h10v3H7zM6 6h12a1 1 0 0 1 1 1v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a1 1 0 0 1 1-1zM8 11v6h8v-6z', evenodd: true },
-  leaf: { name: 'Leaf', path: 'M21 3C10 3 4 8 4 15c0 1.7.4 3.3 1 4.6L3 22h2.2l1.4-1.7C8 21.4 9.9 22 12 22c7 0 9-8 9-19zM7.5 19C9 15 12 12 16 9.5 13 12.5 10.5 15.5 9.3 19.6 8.6 19.5 8 19.3 7.5 19z', evenodd: true },
-  flame: { name: 'Hot', path: 'M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-4-1-6 1-9z' },
-  snow: { name: 'Freezer', path: 'M11 1h2v22h-2zM1.5 6.6l1-1.7 19 11-1 1.7zM2.5 18.8l-1-1.7 19-11 1 1.7zM8 2.5 9.2 1.3 12 4.1l2.8-2.8L16 2.5l-4 4zM8 21.5l1.2 1.2 2.8-2.8 2.8 2.8 1.2-1.2-4-4z' },
-  star: { name: 'Star', path: 'M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7-6.2-3.8-6.2 3.8 1.6-7-5.4-4.7 7.1-.6z' },
-  heart: { name: 'Heart', path: 'M12 21l-1.5-1.3C5 15 2 12.2 2 8.5 2 5.5 4.4 3 7.5 3c1.7 0 3.4.8 4.5 2.1C13.1 3.8 14.8 3 16.5 3 19.6 3 22 5.5 22 8.5c0 3.7-3 6.5-8.5 11.2z' },
-  warning: { name: 'Warning', path: 'M12 1 0 22h24zM11 8v7h2V8zM11 17v2h2v-2z', evenodd: true },
-  check: { name: 'Check', path: 'M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z' },
-  arrow: { name: 'Arrow', path: 'M3 11h13l-5-5 1.4-1.4L20 12l-7.6 7.4L11 18l5-5H3z' },
+  hv: { name: 'High voltage', path: 'M12 1 23.5 21.5H.5zM12 4.5 3.4 19.8h17.2zM13.5 8.8 8.4 14.8H12l-1.6 4 5-6.8h-3z', evenodd: true },
+  dcpos: { name: 'DC jack: center positive', w: 48, h: 16, path: 'M30.63 11.5A7.5 7.5 0 1 1 30.63 4.5H28.24A5.5 5.5 0 1 0 28.24 11.5zM21.5 8A2.5 2.5 0 1 1 26.5 8A2.5 2.5 0 1 1 21.5 8zM24 7H35.5V9H24zM12.5 7H17V9H12.5zM1 8A6 6 0 1 1 13 8A6 6 0 1 1 1 8zM2.5 8A4.5 4.5 0 1 0 11.5 8A4.5 4.5 0 1 0 2.5 8zM35 8A6 6 0 1 1 47 8A6 6 0 1 1 35 8zM36.5 8A4.5 4.5 0 1 0 45.5 8A4.5 4.5 0 1 0 36.5 8zM4.4 7.2H9.6V8.8H4.4zM38.4 7.2H43.6V8.8H38.4zM40.2 5.4H41.8V10.6H40.2z' },
+  dcneg: { name: 'DC jack: center negative', w: 48, h: 16, path: 'M30.63 11.5A7.5 7.5 0 1 1 30.63 4.5H28.24A5.5 5.5 0 1 0 28.24 11.5zM21.5 8A2.5 2.5 0 1 1 26.5 8A2.5 2.5 0 1 1 21.5 8zM24 7H35.5V9H24zM12.5 7H17V9H12.5zM1 8A6 6 0 1 1 13 8A6 6 0 1 1 1 8zM2.5 8A4.5 4.5 0 1 0 11.5 8A4.5 4.5 0 1 0 2.5 8zM35 8A6 6 0 1 1 47 8A6 6 0 1 1 35 8zM36.5 8A4.5 4.5 0 1 0 45.5 8A4.5 4.5 0 1 0 36.5 8zM4.4 7.2H9.6V8.8H4.4zM6.2 5.4H7.8V10.6H6.2zM38.4 7.2H43.6V8.8H38.4z' },
+  wifi: { name: 'WiFi', path: 'M9.8 20.5A2.2 2.2 0 1 1 14.2 20.5A2.2 2.2 0 1 1 9.8 20.5zM6.7 15.2A7.5 7.5 0 0 1 17.3 15.2L15.54 16.96A5 5 0 0 0 8.46 16.96zM3.51 12.01A12 12 0 0 1 20.49 12.01L18.72 13.78A9.5 9.5 0 0 0 5.28 13.78zM0.33 8.83A16.5 16.5 0 0 1 23.67 8.83L21.9 10.6A14 14 0 0 0 2.1 10.6z' },
+  ground: { name: 'Ground', path: 'M11 2H13V11H11zM2.5 11H21.5V13.2H2.5zM6.5 15.4H17.5V17.6H6.5zM10 19.8H14V22H10z' },
 };
 
 const monthYear = () => new Date().toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
@@ -124,7 +116,7 @@ function graphicFor(d, image) {
     return image?.naturalWidth ? { aspect: image.naturalWidth / image.naturalHeight, image } : null;
   }
   const icon = ICONS[d.icon];
-  return icon ? { aspect: 1, icon } : null;
+  return icon ? { aspect: (icon.w ?? 24) / (icon.h ?? 24), icon } : null;
 }
 
 function drawGraphic(ctx, g, x, y, w, h) {
@@ -141,7 +133,7 @@ function drawGraphic(ctx, g, x, y, w, h) {
     ctx.drawImage(g.image, x, y, w, h);
   } else {
     ctx.translate(x, y);
-    ctx.scale(w / 24, h / 24);
+    ctx.scale(w / (g.icon.w ?? 24), h / (g.icon.h ?? 24));
     ctx.fillStyle = '#000';
     ctx.fill(new Path2D(g.icon.path), g.icon.evenodd ? 'evenodd' : 'nonzero');
   }
